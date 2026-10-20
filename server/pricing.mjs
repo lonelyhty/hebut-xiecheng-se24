@@ -13,7 +13,7 @@ export const CABINS = Object.freeze(Object.keys(CABIN_FACTORS));
 const DAY_MS = 86400000;
 const BUCKET_MS = 5 * 60 * 1000;
 const TAX_FEE = 80;
-const SUPPORTED_FLIGHT_CITIES = '上海、北京、广州、深圳、成都、杭州、三亚、西安';
+const SUPPORTED_FLIGHT_CITIES = TRAVEL_DATA.flightCities.map((city) => city.name).join('、');
 
 function pad(value) {
   return value < 10 ? `0${value}` : String(value);

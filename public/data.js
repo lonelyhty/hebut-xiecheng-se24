@@ -332,14 +332,38 @@
   }
 
   const FLIGHT_CITIES = [
-    { code: 'SHA', name: '上海', en: 'Shanghai', region: 'domestic', hot: true, airport: '虹桥国际机场', terminal: 'T2', x: 76, y: 55 },
-    { code: 'BJS', name: '北京', en: 'Beijing', region: 'domestic', hot: true, airport: '首都国际机场', terminal: 'T3', x: 66, y: 24 },
-    { code: 'CAN', name: '广州', en: 'Guangzhou', region: 'domestic', hot: true, airport: '白云国际机场', terminal: 'T2', x: 61, y: 78 },
-    { code: 'SZX', name: '深圳', en: 'Shenzhen', region: 'domestic', hot: true, airport: '宝安国际机场', terminal: 'T3', x: 65, y: 81 },
-    { code: 'CTU', name: '成都', en: 'Chengdu', region: 'domestic', hot: true, airport: '天府国际机场', terminal: 'T2', x: 36, y: 56 },
-    { code: 'HGH', name: '杭州', en: 'Hangzhou', region: 'domestic', hot: true, airport: '萧山国际机场', terminal: 'T4', x: 73, y: 60 },
-    { code: 'SYX', name: '三亚', en: 'Sanya', region: 'domestic', hot: true, airport: '凤凰国际机场', terminal: 'T1', x: 52, y: 93 },
-    { code: 'XIY', name: '西安', en: "Xi'an", region: 'domestic', hot: true, airport: '咸阳国际机场', terminal: 'T3', x: 48, y: 42 }
+    { code: 'SHA', name: '上海', en: "Shanghai", region: 'domestic', hot: true, airport: '虹桥国际机场', terminal: 'T2', x: 76, y: 55 },
+    { code: 'BJS', name: '北京', en: "Beijing", region: 'domestic', hot: true, airport: '首都国际机场', terminal: 'T3', x: 66, y: 24 },
+    { code: 'CAN', name: '广州', en: "Guangzhou", region: 'domestic', hot: true, airport: '白云国际机场', terminal: 'T2', x: 61, y: 78 },
+    { code: 'SZX', name: '深圳', en: "Shenzhen", region: 'domestic', hot: true, airport: '宝安国际机场', terminal: 'T3', x: 65, y: 81 },
+    { code: 'TFU', name: '成都', en: "Chengdu", region: 'domestic', hot: true, airport: '天府国际机场', terminal: 'T2', x: 36, y: 56 },
+    { code: 'HGH', name: '杭州', en: "Hangzhou", region: 'domestic', hot: true, airport: '萧山国际机场', terminal: 'T4', x: 73, y: 60 },
+    { code: 'SYX', name: '三亚', en: "Sanya", region: 'domestic', hot: true, airport: '凤凰国际机场', terminal: 'T1', x: 52, y: 93 },
+    { code: 'XIY', name: '西安', en: "Xi'an", region: 'domestic', hot: true, airport: '咸阳国际机场', terminal: 'T3', x: 48, y: 42 },
+    { code: 'NKG', name: '南京', en: "Nanjing", region: 'domestic', hot: true, airport: '禄口国际机场', terminal: 'T2', x: 72, y: 52 },
+    { code: 'CKG', name: '重庆', en: "Chongqing", region: 'domestic', hot: true, airport: '江北国际机场', terminal: 'T3', x: 44, y: 63 },
+    { code: 'WUH', name: '武汉', en: "Wuhan", region: 'domestic', hot: true, airport: '天河国际机场', terminal: 'T3', x: 56, y: 59 },
+    { code: 'CSX', name: '长沙', en: "Changsha", region: 'domestic', hot: true, airport: '黄花国际机场', terminal: 'T2', x: 55, y: 68 },
+    { code: 'KMG', name: '昆明', en: "Kunming", region: 'domestic', hot: false, airport: '长水国际机场', terminal: 'T1', x: 37, y: 77 },
+    { code: 'XMN', name: '厦门', en: "Xiamen", region: 'domestic', hot: false, airport: '高崎国际机场', terminal: 'T4', x: 70, y: 81 },
+    { code: 'TAO', name: '青岛', en: "Qingdao", region: 'domestic', hot: false, airport: '胶东国际机场', terminal: 'T1', x: 72, y: 42 },
+    { code: 'TSN', name: '天津', en: "Tianjin", region: 'domestic', hot: false, airport: '滨海国际机场', terminal: 'T2', x: 68, y: 30 },
+    { code: 'CGO', name: '郑州', en: "Zhengzhou", region: 'domestic', hot: false, airport: '新郑国际机场', terminal: 'T2', x: 55, y: 47 },
+    { code: 'DLC', name: '大连', en: "Dalian", region: 'domestic', hot: false, airport: '周水子国际机场', terminal: 'T2', x: 75, y: 35 },
+    { code: 'HRB', name: '哈尔滨', en: "Harbin", region: 'domestic', hot: false, airport: '太平国际机场', terminal: 'T2', x: 80, y: 13 },
+    { code: 'SHE', name: '沈阳', en: "Shenyang", region: 'domestic', hot: false, airport: '桃仙国际机场', terminal: 'T3', x: 76, y: 26 },
+    { code: 'KWE', name: '贵阳', en: "Guiyang", region: 'domestic', hot: false, airport: '龙洞堡国际机场', terminal: 'T3', x: 45, y: 73 },
+    { code: 'HAK', name: '海口', en: "Haikou", region: 'domestic', hot: false, airport: '美兰国际机场', terminal: 'T2', x: 53, y: 92 },
+    { code: 'LHW', name: '兰州', en: "Lanzhou", region: 'domestic', hot: false, airport: '中川国际机场', terminal: 'T2', x: 38, y: 44 },
+    { code: 'URC', name: '乌鲁木齐', en: "Urumqi", region: 'domestic', hot: false, airport: '地窝堡国际机场', terminal: 'T3', x: 18, y: 29 },
+    { code: 'NGB', name: '宁波', en: "Ningbo", region: 'domestic', hot: false, airport: '栎社国际机场', terminal: 'T2', x: 75, y: 65 },
+    { code: 'FOC', name: '福州', en: "Fuzhou", region: 'domestic', hot: false, airport: '长乐国际机场', terminal: 'T1', x: 72, y: 77 },
+    { code: 'TNA', name: '济南', en: "Jinan", region: 'domestic', hot: false, airport: '遥墙国际机场', terminal: 'T1', x: 66, y: 40 },
+    { code: 'HFE', name: '合肥', en: "Hefei", region: 'domestic', hot: false, airport: '新桥国际机场', terminal: 'T2', x: 65, y: 53 },
+    { code: 'KHN', name: '南昌', en: "Nanchang", region: 'domestic', hot: false, airport: '昌北国际机场', terminal: 'T2', x: 63, y: 69 },
+    { code: 'NNG', name: '南宁', en: "Nanning", region: 'domestic', hot: false, airport: '吴圩国际机场', terminal: 'T2', x: 50, y: 87 },
+    { code: 'TYN', name: '太原', en: "Taiyuan", region: 'domestic', hot: false, airport: '武宿国际机场', terminal: 'T2', x: 54, y: 38 },
+    { code: 'CGQ', name: '长春', en: "Changchun", region: 'domestic', hot: false, airport: '龙嘉国际机场', terminal: 'T2', x: 79, y: 19 }
   ];
   const FLIGHT_CITY_MAP = Object.fromEntries(FLIGHT_CITIES.map(function (city) { return [city.name, city]; }));
   const FLIGHT_AIRLINES = [

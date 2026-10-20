@@ -24,7 +24,7 @@ npm start
 
 ## 已实现功能
 
-- **机票**：8 个主要城市、56 条国内航线、5 家航司；真实机场/航站楼、基于距离的航班时刻、5 分钟动态含税票价、7 日低价日历、航司与预算筛选、智能航班推荐、本地余票库存与 10 分钟报价锁定。单程/往返入口为演示，往返按单程结果展示。
+- **机票**：32 个主要城市、992 条国内航线、5 家航司；真实机场/航站楼、基于距离的航班时刻、5 分钟动态含税票价、7 日低价日历、航司与预算筛选、完整城市选择器、热门航线快捷入口、智能航班推荐、本地余票库存与 10 分钟报价锁定。单程/往返入口为演示，往返按单程结果展示。
 - **酒店**：城市/日期/人数/星级/关键词搜索，价格与星级筛选，详情、房型与模拟下单。
 - **门票·活动**：城市、日期、关键词搜索，活动详情与模拟下单。
 - **订单**：后端订单中心，状态筛选（待付款/已支付/已值机/已取消），订单详情与状态历史。
@@ -72,7 +72,7 @@ REA 采样的原始场景与证据 JSON 保留在本地证据包中，不随公�
 - [架构与业务设计](docs/design.md)：角色用例、架构图、关键序列图、动态定价、推荐权重、订单状态机、外部模拟 API 集成方案与 API 契约。
 - [测试报告](docs/test-report.md)：自动化测试结果、搜索性能数据、浏览器全流程验证范围与未验证项。
 - [REA 证据索引](docs/evidence.md)：浏览器验证场景、证据 ID 与最终截图。
-- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [航司筛选](docs/screenshots/flight-filters.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)
+- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)
 
 ## 边界说明
 

@@ -180,7 +180,7 @@ import { api } from './api.js';
     flight: {
       title: '预订机票',
       eyebrow: '智能推荐 · 动态票价',
-      subtitle: '国内 8 城 · 56 条航线 · 动态票价与智能推荐'
+      subtitle: '全国 32 城 · 992 条航线 · 动态票价与智能推荐'
     },
     train: {
       title: '预订火车票',
@@ -869,7 +869,7 @@ import { api } from './api.js';
     if (!from || !to) { toast('请填写出发与到达城市'); return; }
     if (from === to) { toast('出发和到达城市不能相同'); return; }
     if (!DATA.findFlightCity(from) || !DATA.findFlightCity(to)) {
-      toast('目前仅支持上海、北京、广州、深圳、成都、杭州、三亚、西安之间的模拟航班');
+      toast('目前支持 ' + DATA.flightCities.length + ' 个主要城市之间的模拟航班，请从城市列表中选择');
       return;
     }
     state.flight.from = from;
@@ -2148,15 +2148,21 @@ import { api } from './api.js';
     if (target === 'hotel') {
       $('#hotelCitySuggest').hidden = true;
     }
-    let region = (DATA.findCity(getTargetCity(target)) || {}).region === 'international' ? 'international' : 'domestic';
+    const isFlight = String(target).indexOf('flight') === 0;
+    const pool = isFlight ? DATA.flightCities : DATA.cities;
+    const currentCity = isFlight
+      ? (DATA.findFlightCity(getTargetCity(target)) || {})
+      : (DATA.findCity(getTargetCity(target)) || {});
+    const hasInternational = pool.some(function (city) { return city.region === 'international'; });
+    let region = currentCity.region === 'international' ? 'international' : 'domestic';
     let query = '';
     const html = '<div id="cityPickerRoot">' +
       '<div class="modal-head"><h2 id="modalTitle">选择城市</h2><p>选择目的地后，将自动带回到搜索表单。</p></div>' +
       '<div class="modal-body">' +
         '<div class="city-search-line">' + svgIcon('search') + '<input id="cityPickerSearch" type="text" placeholder="搜索城市名称或拼音" autocomplete="off"></div>' +
-        '<div class="city-modal-tabs"><button type="button" class="city-modal-tab' + (region === 'domestic' ? ' is-active' : '') + '" data-region="domestic">国内（含港澳台）</button><button type="button" class="city-modal-tab' + (region === 'international' ? ' is-active' : '') + '" data-region="international">海外</button></div>' +
+        (hasInternational ? '<div class="city-modal-tabs"><button type="button" class="city-modal-tab' + (region === 'domestic' ? ' is-active' : '') + '" data-region="domestic">国内（含港澳台）</button><button type="button" class="city-modal-tab' + (region === 'international' ? ' is-active' : '') + '" data-region="international">海外</button></div>' : '') +
         '<div id="cityPickerBody"></div>' +
-        '<p class="city-hint">酒店、机票、火车票与门票共用这份本地城市列表。</p>' +
+        '<p class="city-hint">' + (isFlight ? '共 ' + pool.length + ' 个可飞城市；机场、时刻、余票与价格均为本地模拟。' : '酒店、机票、火车票与门票共用这份本地城市列表。') + '</p>' +
       '</div>' +
     '</div>';
     const modal = openModal(html, { className: 'modal-city' });
@@ -2167,7 +2173,7 @@ import { api } from './api.js';
     function render() {
       const current = getTargetCity(target);
       const normalizedQuery = query.trim().toLowerCase();
-      const list = DATA.cities.filter(function (city) {
+      const list = pool.filter(function (city) {
         if (city.region !== region) return false;
         if (!normalizedQuery) return true;
         return city.name.toLowerCase().indexOf(normalizedQuery) !== -1 || city.en.toLowerCase().indexOf(normalizedQuery) !== -1;
@@ -2269,7 +2275,7 @@ import { api } from './api.js';
     $('#globalSuggestions').hidden = true;
   }
 
-  function bindCitySuggest(input, panel, onPick, cityPool) {
+  function bindCitySuggest(input, panel, onPick, cityPool, pickerTarget) {
     const pool = cityPool || DATA.cities;
     function render() {
       const query = input.value.trim().toLowerCase();
@@ -2282,18 +2288,19 @@ import { api } from './api.js';
         list = list.slice(0, 12);
       }
       hideFloatingPanels();
+      const flightMode = String(pickerTarget || '').indexOf('flight') === 0;
       if (!list.length) {
-        panel.innerHTML = '<div class="suggest-label">没有匹配城市</div><div class="suggest-item"><span class="suggest-item-copy"><strong>暂无可选航班城市</strong><span>当前支持：上海、北京、广州、深圳、成都、杭州、三亚、西安</span></span></div>';
+        panel.innerHTML = '<div class="suggest-label">没有匹配城市</div><div class="suggest-item"><span class="suggest-item-copy"><strong>暂无可选城市</strong><span>点击下方按钮浏览全部 ' + pool.length + ' 个城市</span></span></div>' + (pickerTarget ? '<button type="button" class="suggest-all" data-city-all="' + esc(pickerTarget) + '">浏览全部 ' + pool.length + ' 个城市</button>' : '');
       } else {
-        panel.innerHTML = '<div class="suggest-label">' + (query ? '匹配航班城市' : '热门航班城市') + '</div>' + list.map(function (city) {
-          const meta = city.code
+        panel.innerHTML = '<div class="suggest-label">' + (query ? (flightMode ? '匹配航班城市' : '匹配城市') : (flightMode ? '热门航班城市' : '热门城市')) + '</div>' + list.map(function (city) {
+          const meta = flightMode && city.code
             ? city.code + ' · ' + city.airport + ' ' + city.terminal
-            : esc(city.en) + ' · ' + (city.region === 'international' ? '海外' : '国内');
+            : city.en + ' · ' + (city.region === 'international' ? '海外' : '国内');
           return '<button type="button" class="suggest-item" data-city-pick="' + esc(city.name) + '">' +
-            '<span class="suggest-item-icon">' + svgIcon('plane') + '</span>' +
+            '<span class="suggest-item-icon">' + svgIcon(flightMode ? 'plane' : 'location') + '</span>' +
             '<span class="suggest-item-copy"><strong>' + esc(city.name) + '</strong><span>' + esc(meta) + '</span></span>' +
           '</button>';
-        }).join('');
+        }).join('') + (pickerTarget ? '<button type="button" class="suggest-all" data-city-all="' + esc(pickerTarget) + '">浏览全部 ' + pool.length + ' 个城市</button>' : '');
       }
       positionFloating(panel, input.closest('.field') || input, 340);
     }
@@ -2306,6 +2313,13 @@ import { api } from './api.js';
       }
     });
     panel.addEventListener('click', function (event) {
+      const allButton = event.target.closest('[data-city-all]');
+      if (allButton) {
+        panel.hidden = true;
+        panel.classList.remove('is-floating');
+        openCityPicker(allButton.getAttribute('data-city-all'));
+        return;
+      }
       const button = event.target.closest('[data-city-pick]');
       if (!button) return;
       const city = button.getAttribute('data-city-pick');
@@ -2773,27 +2787,27 @@ import { api } from './api.js';
     bindCitySuggest($('#hotelCityInput'), $('#hotelCitySuggest'), function (city) {
       state.search.city = city;
       $('#hotelCityInput').value = city;
-    });
+    }, DATA.cities, 'hotel');
     bindCitySuggest($('#flightFromInput'), $('#flightFromSuggest'), function (city) {
       state.flight.from = city;
       $('#flightFromInput').value = city;
-    }, DATA.flightCities);
+    }, DATA.flightCities, 'flightFrom');
     bindCitySuggest($('#flightToInput'), $('#flightToSuggest'), function (city) {
       state.flight.to = city;
       $('#flightToInput').value = city;
-    }, DATA.flightCities);
+    }, DATA.flightCities, 'flightTo');
     bindCitySuggest($('#trainFromInput'), $('#trainFromSuggest'), function (city) {
       state.train.from = city;
       $('#trainFromInput').value = city;
-    });
+    }, DATA.cities, 'trainFrom');
     bindCitySuggest($('#trainToInput'), $('#trainToSuggest'), function (city) {
       state.train.to = city;
       $('#trainToInput').value = city;
-    });
+    }, DATA.cities, 'trainTo');
     bindCitySuggest($('#ticketCityInput'), $('#ticketCitySuggest'), function (city) {
       state.ticket.city = city;
       $('#ticketCityInput').value = city;
-    });
+    }, DATA.cities, 'ticket');
 
     $('#swapCities').addEventListener('click', function () {
       const from = $('#flightFromInput').value;
@@ -2816,6 +2830,18 @@ import { api } from './api.js';
       if (!tab) return;
       state.flight.trip = tab.getAttribute('data-trip');
       $$('#tripTabs .trip-tab').forEach(function (button) { button.classList.toggle('is-active', button === tab); });
+    });
+
+    $('#flightRouteShortcuts').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-flight-route]');
+      if (!button) return;
+      const route = button.getAttribute('data-flight-route').split('|');
+      if (route.length !== 2) return;
+      state.flight.from = route[0];
+      state.flight.to = route[1];
+      $('#flightFromInput').value = route[0];
+      $('#flightToInput').value = route[1];
+      performFlightSearch();
     });
 
     bindDateTrigger('#hotelDateField', 'hotel');

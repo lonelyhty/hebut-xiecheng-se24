@@ -12,12 +12,12 @@
 tests 12
 pass 12
 fail 0
-duration_ms 279.6782
+duration_ms 272.6135
 ```
 
 | # | 测试 | 覆盖点 | 结果 |
 |---|---|---|---|
-| 1 | full flight lifecycle | 搜索（8 城/5 航司/5 班）、报价、鉴权、1–6 位乘机人、库存扣减、支付出票、180 座座位图、48h–45min 值机窗口、PNR/票号登机牌、非法重复支付、已值机取消 | PASS |
+| 1 | full flight lifecycle | 搜索（32 城/5 航司/5 班）、报价、鉴权、1–6 位乘机人、库存扣减、支付出票、180 座座位图、48h–45min 值机窗口、PNR/票号登机牌、非法重复支付、已值机取消 | PASS |
 | 2 | cancellation, hotel and ticket orders, roles and access control | 取消与模拟退款、重复取消、酒店订单金额、门票数量金额、旅客 scope=all 403、旅行社跨用户读取、行程 API、404 | PASS |
 | 3 | flight search returns priced flights with recommendation metadata | 5 条航班、真实机场/航站楼、价格/税费、余票、7 日低价、推荐 ID、最低价一致性 | PASS |
 | 4 | dynamic pricing deterministic and time-sensitive | 同一 5 分钟价格桶可复现；跨价格桶价格变化 | PASS |
@@ -44,10 +44,10 @@ duration_ms 279.6782
 
 | 指标 | 进程内搜索（400 次） | HTTP 搜索（40 次串行） |
 |---|---:|---:|
-| p50 | 0.130 ms | 0.846 ms |
-| p95 | **0.255 ms** | **1.584 ms** |
-| p99 | 0.499 ms | 2.234 ms |
-| max | 2.120 ms | 2.234 ms |
+| p50 | 0.132 ms | 0.853 ms |
+| p95 | **0.269 ms** | **1.566 ms** |
+| p99 | 0.387 ms | 2.175 ms |
+| max | 2.102 ms | 2.175 ms |
 
 测试为单机、确定性模拟库存，不代表生产容量。HTTP 测试包含本地网络与 JSON 序列化开销；阈值分别设为 p95 < 50 ms 与 p95 < 250 ms，均远低于阈值。生产环境仍需针对并发、冷启动、数据库与外部供应商延迟单独压测。
 
@@ -57,15 +57,18 @@ duration_ms 279.6782
 
 | 场景 | 关键动作 | Evidence ID | 截图 | 结果 |
 |---|---|---|---|---|
-| 首页 | 加载、等待 API 状态与首屏推荐 | `ev_193071324081e18f12e2068948552aa20bdfb2b0d93c97dc2f04e60959e10afe` | [homepage.png](screenshots/homepage.png) | 2 步完成，页面错误 0 |
-| 航班搜索与低价日历 | 搜索上海→北京、等待智能推荐、动态票价与低价日期栏 | `ev_babcc206f80ce0ab1b713fafad1882f790cf9a9af5ab12bcd27ba21fa7ee2ff3` | [flight-search.png](screenshots/flight-search.png) | 5 步完成，页面错误 0 |
-| 日期切换与航司筛选 | 切换低价日期、选择东方航空、验证结果数量与筛选面板 | `ev_9384382ced052c753bf1c36996ab9f5ecd4bba118b4439a80e305081afe21691` | [flight-filters.png](screenshots/flight-filters.png) | 8 步完成，页面错误 0 |
-| 登录补全 | 未登录点击预订 → 登录 → 自动回到包含乘机人字段的订票表单 | `ev_1db9af05a6f1755c8bd21fb22ee802f735ae0bb27df6a351664c92beb33fdece` | [login-to-booking.png](screenshots/login-to-booking.png) | 12 步完成，页面错误 0 |
-| 机票全流程 | 搜索 → 选航班 → 填乘机人 → 下单 → 支付出票 → 值机 → PNR/票号登机牌 | `ev_2fe1e908e2a91ddb43751567d5110bc4ea33a4ab1d4464c436aa95f513eab7eb` | [boarding-pass.png](screenshots/boarding-pass.png) | 16 步完成，页面错误 0 |
-| 酒店 | 酒店搜索 → 详情 → 房型 → 下单 → 支付 | `ev_aec52eea10932b949588698cdf1250bbcac9d06bc8f7879726fe138016d2781f` | [hotel-payment.png](screenshots/hotel-payment.png) | 15 步完成，页面错误 0 |
-| 门票 | 门票搜索 → 详情 → 下单 → 支付 | `ev_426667350c61838c2a92bc8772e2a695c2c99c64582c1c82f6ea725617038ef8` | [ticket-payment.png](screenshots/ticket-payment.png) | 15 步完成，页面错误 0 |
-| 行程规划 | 打开 AI 行程助手 → 调用后端生成 3 日行程 | `ev_3e2ba1f62b54c26f6241dd3a484da1eeac328cfabeabc3f3e656aa7d5c2b17ae` | [itinerary-planner.png](screenshots/itinerary-planner.png) | 7 步完成，页面错误 0 |
-| 订单管理页 | 打开订单中心 → 加载 3 个不同状态订单 | `ev_02ecccb8134e532e055da7a6f1c4e2972596e1f2441f1e34a2ea389b8f0322f5` | [orders.png](screenshots/orders.png) | 6 步完成，页面错误 0 |
+| 首页 | 加载、等待 API 状态、32 城说明与热门航线入口 | `ev_a230ecb3e3282c20c6984fbce36be56840374c65f8a05570f98e0f89368418c4` | [homepage.png](screenshots/homepage.png) | 2 步完成，页面错误 0 |
+| 航班搜索与低价日历 | 搜索上海→北京、等待智能推荐、动态票价与低价日期栏 | `ev_3ea5a7f9b08bbc015f2c58058db16d13fd78994ae99d499ddd757f5ababdd2cd` | [flight-search.png](screenshots/flight-search.png) | 5 步完成，页面错误 0 |
+| 完整城市选择器 | 打开“浏览全部城市”，查看 32 个城市与字母分组 | `ev_18fb37fecbb465e78b2fe7535efda795a0a5771c55cd9c97787312901f02a2c1` | [city-picker.png](screenshots/city-picker.png) | 7 步完成，页面错误 0 |
+| 选择新城市并搜索 | 在城市选择器选择兰州，返回表单并搜索 | `ev_d35fcbb24dad0088fa6e75e780e9d5bd5f6f14ce2fb4e6d2ae925df65236d238` | [city-select.png](screenshots/city-select.png) | 10 步完成，页面错误 0 |
+| 热门航线快捷入口 | 点击“北京 → 成都”直接查询对应航线 | `ev_aed9ff0bbd6739d18af8dcb376ed4c4f573152072d7f8acd70087f26c5a63840` | [route-shortcuts.png](screenshots/route-shortcuts.png) | 5 步完成，页面错误 0 |
+| 日期切换与航司筛选 | 切换低价日期、选择东方航空、验证价格预算面板 | `ev_f1593456831485b39a3d79892f31a4234549ed1b5b1fbee26c6035f81da3f7c7` | [flight-filters.png](screenshots/flight-filters.png) | 8 步完成，页面错误 0 |
+| 登录补全 | 未登录点击预订 → 登录 → 自动回到包含乘机人字段的订票表单 | `ev_625223a07903a1c53a7408c7f624c84524d2497387bec0dedf84bb9bc96d39ad` | [login-to-booking.png](screenshots/login-to-booking.png) | 12 步完成，页面错误 0 |
+| 机票全流程 | 搜索 → 选航班 → 填乘机人 → 下单 → 支付出票 → 值机 → PNR/票号登机牌 | `ev_89e3f3c76e4638944d71a8810d26c1c9e1a960a2aa24f6261cc7ddfd43242703` | [boarding-pass.png](screenshots/boarding-pass.png) | 16 步完成，页面错误 0 |
+| 酒店 | 酒店搜索 → 详情 → 房型 → 下单 → 支付 | `ev_bcb238ff89490bea3bf3182ef8a14f775e4400e62ceff29153087bcad1bed409` | [hotel-payment.png](screenshots/hotel-payment.png) | 15 步完成，页面错误 0 |
+| 门票 | 门票搜索 → 详情 → 下单 → 支付 | `ev_ad3f19188ca0211ed525ea4da9ad5e91f00b29566e27157c935124bdf6d6ed48` | [ticket-payment.png](screenshots/ticket-payment.png) | 15 步完成，页面错误 0 |
+| 行程规划 | 打开 AI 行程助手 → 调用后端生成 3 日行程 | `ev_aa5b5e4723d9ea3eea405d92fa218a3e170bb3aa14b728b121623d6b2272be05` | [itinerary-planner.png](screenshots/itinerary-planner.png) | 7 步完成，页面错误 0 |
+| 订单管理页 | 打开订单中心 → 加载 3 个不同状态订单 | `ev_4fd90a5c9f3cd6eb44c10ab50ce8676eb2191f88afc6ce10a216722ba557ff80` | [orders.png](screenshots/orders.png) | 6 步完成，页面错误 0 |
 
 详细索引见 [evidence.md](evidence.md)。
 
@@ -78,7 +81,7 @@ duration_ms 279.6782
 | 在线值机 | 支付出票后 30 排 A–F 座位图、48h–45min 窗口、单人订单、后端座位冲突校验、PNR/票号/登机口/登机时间；API 测试 + REA 全流程 |
 | 行程规划 | 后端按城市/天数/偏好生成逐日行程；API 测试 + REA |
 | 多角色（旅客/旅行社） | 登录角色选择；旅客订单隔离；旅行社 `scope=all` 与跨用户读取；API 测试覆盖 |
-| 真实机场/航司目录 | 8 城真实三字码、机场/航站楼、5 家航司、基于距离的 5 班时刻；页面与 API 使用同一目录 |
+| 真实机场/航司目录 | 32 城真实三字码、机场/航站楼、5 家航司、992 个方向组合、基于距离的 5 班时刻；页面与 API 使用同一目录 |
 | 余票库存 | 搜索过滤余票不足、下单扣减、取消/超时释放；API 与 REA 覆盖 |
 | 乘机人信息与出票 | 1–6 位乘机人姓名/演示证件号；支付后票号与 PNR；订单页与登机牌展示 |
 | 航班搜索与展示 | 真实 API 搜索、排序、动态价格；domain/API/REA 均覆盖 |
@@ -96,7 +99,7 @@ duration_ms 279.6782
 3. **没有真实支付回调与幂等 webhook**：仅有本地同步支付和支付锁。
 4. **旅行社前端视角未单独截图**：角色与权限由 API 测试覆盖；UI 只通过同一订单页渲染 all scope。
 5. **多人值机未实现**：与 GPT 版一致，支付出票支持 1–6 人，但当前在线值机仅支持单人订单。
-6. **航班仅覆盖 8 个城市**：其余城市在航班搜索中会返回“暂无可模拟航班”，酒店/门票不受此限制。
+6. **航班仅覆盖 32 个城市**：其余城市在航班搜索中会返回“暂无可模拟航班”，酒店/门票不受此限制。
 7. **打印登机牌未做物理打印机验证**：仅实现 `@media print` 样式。
 8. **移动端与无障碍**：已做响应式样式，但未执行完整移动端视觉回归、键盘操作矩阵或 WCAG 审计。
 9. **跨浏览器**：浏览器证据来自 Chrome；未验证 Safari/Firefox。
