@@ -179,12 +179,15 @@ test('cancellation, hotel and ticket orders, roles and access control', async ()
   assert.equal(hotelSearch.status, 200);
   assert.ok(hotelSearch.payload.results.length > 0);
   const hotel = hotelSearch.payload.results[0];
+  let roomIndex = hotel.rooms.findIndex((room) => room.left >= 1 && room.left <= 5);
+  if (roomIndex < 0) roomIndex = 0;
+  const initialRoomLeft = hotel.rooms[roomIndex].left;
   const hotelOrder = await call('POST', '/api/orders', {
     token: travelerToken,
     body: {
       type: 'hotel',
       hotelId: hotel.id,
-      roomIndex: 0,
+      roomIndex,
       checkin: CHECKIN,
       checkout: CHECKOUT,
       rooms: 1,
@@ -193,8 +196,41 @@ test('cancellation, hotel and ticket orders, roles and access control', async ()
     }
   });
   assert.equal(hotelOrder.status, 201);
-  assert.equal(hotelOrder.payload.order.total, hotel.rooms[0].price);
+  assert.equal(hotelOrder.payload.order.total, hotel.rooms[roomIndex].price);
   assert.equal(hotelOrder.payload.order.details.nights, 1);
+  assert.equal(hotelOrder.payload.order.details.roomIndex, roomIndex);
+
+  const afterBookingSearch = await call('GET', `/api/hotels/search?${query({
+    city: '上海', checkin: CHECKIN, checkout: CHECKOUT
+  })}`);
+  const afterHotel = afterBookingSearch.payload.results.find((item) => item.id === hotel.id);
+  assert.equal(afterHotel.rooms[roomIndex].left, initialRoomLeft - 1);
+
+  if (initialRoomLeft <= 5) {
+    const oversell = await call('POST', '/api/orders', {
+      token: travelerToken,
+      body: {
+        type: 'hotel',
+        hotelId: hotel.id,
+        roomIndex,
+        checkin: CHECKIN,
+        checkout: CHECKOUT,
+        rooms: initialRoomLeft,
+        guests: 1,
+        contact: { name: '测试旅客', phone: '13800138000' }
+      }
+    });
+    assert.equal(oversell.status, 409);
+    assert.equal(oversell.payload.error.code, 'SOLD_OUT');
+  }
+
+  const cancelHotel = await call('POST', `/api/orders/${hotelOrder.payload.order.id}/cancel`, { token: travelerToken });
+  assert.equal(cancelHotel.status, 200);
+  const afterCancelSearch = await call('GET', `/api/hotels/search?${query({
+    city: '上海', checkin: CHECKIN, checkout: CHECKOUT
+  })}`);
+  const restoredHotel = afterCancelSearch.payload.results.find((item) => item.id === hotel.id);
+  assert.equal(restoredHotel.rooms[roomIndex].left, initialRoomLeft);
 
   const attractionSearch = await call('GET', `/api/attractions/search?${query({
     city: '上海', date: CHECKIN

@@ -224,7 +224,11 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       results: results.map((hotel) => ({
         ...hotel,
         nights,
-        totalFrom: hotel.price * nights
+        totalFrom: hotel.price * nights,
+        rooms: hotel.rooms.map((room, roomIndex) => {
+          const left = store.getAvailableHotelRooms(hotel.id, roomIndex, room.left);
+          return { ...room, left, soldOut: left <= 0 };
+        })
       }))
     };
   }
@@ -263,6 +267,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
 
     let order;
     let reservation = null;
+    let hotelReservation = null;
     if (type === 'flight') {
       const quote = quotes.get(String(input.quoteId || ''));
       if (!quote) throw conflict('QUOTE_EXPIRED', '报价已失效，请重新搜索航班');
@@ -339,6 +344,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       if (!Number.isInteger(rooms) || rooms < 1 || rooms > 5) throw badRequest('房间数量应为 1-5');
       if (!Number.isInteger(guests) || guests < 1 || guests > 10) throw badRequest('住客数量应为 1-10');
       const total = room.price * nights * rooms;
+      hotelReservation = { hotelId: hotel.id, roomIndex, totalRooms: room.left, count: rooms };
       order = {
         ...base,
         title: `${hotel.name} · ${room.name}`,
@@ -362,6 +368,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           hotelId: hotel.id,
           hotelName: hotel.name,
           room: room.name,
+          roomIndex,
           checkin: checkin.key,
           checkout: checkout.key,
           nights,
@@ -412,10 +419,15 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       const reserved = store.reserveFlightSeats(reservation.flightId, reservation.totalSeats, reservation.count);
       if (!reserved) throw conflict('SOLD_OUT', '余票不足，请重新搜索航班');
     }
+    if (hotelReservation) {
+      const reserved = store.reserveHotelRooms(hotelReservation.hotelId, hotelReservation.roomIndex, hotelReservation.totalRooms, hotelReservation.count);
+      if (!reserved) throw conflict('SOLD_OUT', '该房型余量不足，请重新选择房间');
+    }
     try {
       await store.insertOrder(order);
     } catch (error) {
       if (reservation) store.releaseFlightSeats(reservation.flightId, reservation.count);
+      if (hotelReservation) store.releaseHotelRooms(hotelReservation.hotelId, hotelReservation.roomIndex, hotelReservation.count);
       throw error;
     }
     return serializeOrder(order);
@@ -434,6 +446,9 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
         });
         if (order.type === 'flight' && order.details && order.details.flightId) {
           store.releaseFlightSeats(order.details.flightId, orderPassengerCount(order));
+        }
+        if (order.type === 'hotel' && order.details && order.details.hotelId && order.details.roomIndex != null) {
+          store.releaseHotelRooms(order.details.hotelId, order.details.roomIndex, Number(order.details.rooms) || 1);
         }
         changed = true;
       }
@@ -517,6 +532,9 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     };
     if (order.type === 'flight' && order.details && order.details.flightId) {
       store.releaseFlightSeats(order.details.flightId, orderPassengerCount(order));
+    }
+    if (order.type === 'hotel' && order.details && order.details.hotelId && order.details.roomIndex != null) {
+      store.releaseHotelRooms(order.details.hotelId, order.details.roomIndex, Number(order.details.rooms) || 1);
     }
     transition(order, ORDER_STATUS.CANCELLED, {
       at: now,

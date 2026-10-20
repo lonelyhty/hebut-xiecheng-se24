@@ -7,7 +7,8 @@ const EMPTY_DATA = {
   users: [],
   sessions: [],
   orders: [],
-  inventory: {}
+  inventory: {},
+  hotelInventory: {}
 };
 
 const ACTIVE_FLIGHT_STATUSES = new Set(['PENDING_PAYMENT', 'PAID', 'CHECKED_IN']);
@@ -32,7 +33,8 @@ export class Store {
         users: Array.isArray(parsed.users) ? parsed.users : [],
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
         orders: Array.isArray(parsed.orders) ? parsed.orders : [],
-        inventory: parsed.inventory && typeof parsed.inventory === 'object' ? parsed.inventory : {}
+        inventory: parsed.inventory && typeof parsed.inventory === 'object' ? parsed.inventory : {},
+        hotelInventory: parsed.hotelInventory && typeof parsed.hotelInventory === 'object' ? parsed.hotelInventory : {}
       };
     } catch (error) {
       if (error.code !== 'ENOENT') {
@@ -151,6 +153,42 @@ export class Store {
     if (!this.data.inventory || !this.data.inventory[flightId]) return;
     const inventory = this.data.inventory[flightId];
     inventory.reservedSeats = Math.max(0, inventory.reservedSeats - count);
+  }
+
+  ensureHotelRoomInventory(hotelId, roomIndex, totalRooms) {
+    if (!this.data.hotelInventory) this.data.hotelInventory = {};
+    if (!this.data.hotelInventory[hotelId]) this.data.hotelInventory[hotelId] = {};
+    const key = String(roomIndex);
+    if (!this.data.hotelInventory[hotelId][key]) {
+      const reserved = this.data.orders
+        .filter((order) => order.type === 'hotel' && ACTIVE_FLIGHT_STATUSES.has(order.status))
+        .filter((order) => order.details && order.details.hotelId === hotelId && Number(order.details.roomIndex) === Number(roomIndex))
+        .reduce((sum, order) => sum + Number(order.details.rooms || 1), 0);
+      this.data.hotelInventory[hotelId][key] = {
+        totalRooms: Math.max(0, Number(totalRooms) || 0),
+        reservedRooms: Math.min(Math.max(0, Number(totalRooms) || 0), Math.max(0, reserved))
+      };
+    }
+    return this.data.hotelInventory[hotelId][key];
+  }
+
+  getAvailableHotelRooms(hotelId, roomIndex, totalRooms) {
+    const inventory = this.ensureHotelRoomInventory(hotelId, roomIndex, totalRooms);
+    return Math.max(0, inventory.totalRooms - inventory.reservedRooms);
+  }
+
+  reserveHotelRooms(hotelId, roomIndex, totalRooms, count) {
+    const inventory = this.ensureHotelRoomInventory(hotelId, roomIndex, totalRooms);
+    if (inventory.totalRooms - inventory.reservedRooms < count) return false;
+    inventory.reservedRooms += count;
+    return true;
+  }
+
+  releaseHotelRooms(hotelId, roomIndex, count) {
+    if (!this.data.hotelInventory || !this.data.hotelInventory[hotelId]) return;
+    const inventory = this.data.hotelInventory[hotelId][String(roomIndex)];
+    if (!inventory) return;
+    inventory.reservedRooms = Math.max(0, inventory.reservedRooms - count);
   }
 
   findOrderById(id) {

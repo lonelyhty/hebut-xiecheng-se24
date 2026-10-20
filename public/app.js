@@ -1408,6 +1408,24 @@ import { api } from './api.js';
   /* Hotel detail and booking                                            */
   /* ------------------------------------------------------------------ */
 
+  function adjustHotelCacheAvailability(order, delta) {
+    if (!order || order.type !== 'hotel' || !order.details || order.details.roomIndex == null) return;
+    const hotelId = order.details.hotelId;
+    const roomIndex = Number(order.details.roomIndex);
+    const count = Number(order.details.rooms) || 1;
+    const hotels = [DATA.getHotelById(hotelId)];
+    if (Array.isArray(state.resultData)) {
+      const current = state.resultData.find(function (item) { return item.id === hotelId; });
+      if (current) hotels.push(current);
+    }
+    hotels.forEach(function (entry) {
+      if (!entry || !Array.isArray(entry.rooms) || !entry.rooms[roomIndex]) return;
+      const room = entry.rooms[roomIndex];
+      room.left = Math.max(0, (Number(room.left) || 0) + delta * count);
+      room.soldOut = room.left <= 0;
+    });
+  }
+
   function openHotelDetail(hotel) {
     if (!hotel) return;
     state.ticketContext = null;
@@ -1421,10 +1439,12 @@ import { api } from './api.js';
       '<div class="detail-tag-line">' + hotel.tags.map(function (tag, index) { return '<span class="detail-tag' + (index === 0 ? ' is-accent' : '') + '">' + esc(tag) + '</span>'; }).join('') + '</div>' +
       '<div class="detail-section"><h3>酒店设施</h3><div class="amenity-grid">' + hotel.amenities.map(function (item) { return '<div class="amenity-item">' + svgIcon(item[0]) + '<span>' + esc(item[1]) + '</span></div>'; }).join('') + '</div></div>' +
       '<div class="detail-section"><h3>房型与价格</h3><div class="room-list">' + hotel.rooms.map(function (room, index) {
+        const left = Math.max(0, Number(room.left) || 0);
+        const soldOut = left <= 0;
         return '<div class="room-card"><div class="room-info"><strong>' + esc(room.name) + '</strong><p>' + esc(room.bed) + ' · ' + esc(room.size) + ' · ' + esc(room.breakfast) + ' · <span class="room-cancel">' + esc(room.cancel) + '</span></p></div>' +
-          '<div class="room-price-block"><div class="room-price"><strong><em>¥</em>' + money(room.price) + '</strong><span class="' + (room.left <= 2 ? 'is-warning' : '') + '">仅剩 ' + room.left + ' 间</span></div><button class="primary-button" type="button" data-book-room="' + esc(hotel.id) + '" data-room-index="' + index + '">预订</button></div></div>';
+          '<div class="room-price-block"><div class="room-price"><strong><em>¥</em>' + money(room.price) + '</strong><span class="' + (left <= 2 && !soldOut ? 'is-warning' : '') + '">' + (soldOut ? '已满房' : '仅剩 ' + left + ' 间') + '</span></div><button class="primary-button" type="button" data-book-room="' + esc(hotel.id) + '" data-room-index="' + index + '"' + (soldOut ? ' disabled' : '') + '>' + (soldOut ? '已满' : '预订') + '</button></div></div>';
       }).join('') + '</div></div>' +
-      '<div class="detail-note">本地演示：酒店名称、图片、评分、房态和价格均为模拟数据；预订后可在“我的订单”中查看或取消。</div>' +
+      '<div class="detail-note">本地演示：酒店名称、图片、评分、房态和价格均为模拟数据。房量会在下单时扣减，取消订单或支付超时后释放。</div>' +
     '</div>';
     openModal(html, { className: 'modal-wide' });
   }
@@ -1480,6 +1500,7 @@ import { api } from './api.js';
         hotelId: hotel.id,
         hotelName: hotel.name,
         room: room.name,
+        roomIndex: hotel.rooms.indexOf(room),
         checkin: dateKey(state.search.checkin),
         checkout: dateKey(state.search.checkout),
         nights: nights,
@@ -1692,6 +1713,7 @@ import { api } from './api.js';
         if (draft.kind === 'flight') payload.passengers = passengers;
         const result = await api.createOrder(payload);
         state.bookingDraft = null;
+        if (result.order.type === 'hotel') adjustHotelCacheAvailability(result.order, -1);
         upsertOrder(result.order);
         toast('订单已创建，请完成模拟支付');
         openPaymentModal(result.order);
@@ -1727,6 +1749,7 @@ import { api } from './api.js';
       details: draft.details
     };
     state.orders.unshift(order);
+    if (order.type === 'hotel') adjustHotelCacheAvailability(order, -1);
     writeStore(STORAGE.orders, state.orders);
     renderOrdersPreview();
     state.bookingDraft = null;
@@ -1827,6 +1850,7 @@ import { api } from './api.js';
     if (state.apiOnline && isServerOrder) {
       try {
         const result = await api.cancelOrder(id);
+        if (result.order.type === 'hotel') adjustHotelCacheAvailability(result.order, 1);
         upsertOrder(result.order);
         if (!$('#ordersView').hidden) renderOrdersPage();
         if (state.modalOpen) closeModal();
@@ -1837,6 +1861,7 @@ import { api } from './api.js';
       return;
     }
     if (order.status === '已取消') return;
+    if (order.type === 'hotel') adjustHotelCacheAvailability(order, 1);
     order.status = '已取消';
     order.statusLabel = '已取消（本地）';
     writeStore(STORAGE.orders, state.orders);
