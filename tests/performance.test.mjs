@@ -15,8 +15,8 @@ const ROUTES = [
   ['广州', '成都'],
   ['深圳', '杭州'],
   ['成都', '三亚'],
-  ['杭州', '厦门'],
-  ['南京', '重庆']
+  ['上海', '三亚'],
+  ['北京', '成都']
 ];
 
 function percentile(sorted, ratio) {
@@ -59,7 +59,7 @@ test('in-process flight search p95 stays well below 50ms over 400 runs', () => {
     count += result.results.length;
   }
   const summary = report('domain-flight-search', samples);
-  assert.equal(count, 2400);
+  assert.equal(count, 2000);
   assert.ok(summary.p95_ms < 50, `p95 ${summary.p95_ms}ms should be under 50ms`);
   assert.ok(summary.p99_ms < 100, `p99 ${summary.p99_ms}ms should be under 100ms`);
 });

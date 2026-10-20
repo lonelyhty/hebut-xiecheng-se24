@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { conflict, unprocessable } from './errors.mjs';
 import { ORDER_STATUS } from './order-machine.mjs';
+import { issueTicket } from './airline.mjs';
 
 const COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F'];
-const ROWS = [1, 2, 3, 4, 5, 6, 7, 8];
+const ROWS = Array.from({ length: 30 }, (_, index) => index + 1);
 
 function hashString(input) {
   let hash = 2166136261;
@@ -32,8 +33,8 @@ function subtractMinutes(time, minutes) {
 }
 
 function gateFor(order) {
-  const number = 1 + (hashString(`${order.details.flightNo}|${order.details.date}|gate`) % 18);
-  return `A${number}`;
+  const number = 1 + (hashString(`${order.details.flightNo}|${order.details.date}|gate`) % 20);
+  return `B${number}`;
 }
 
 function takenSeats(store, order) {
@@ -63,9 +64,7 @@ export function buildSeatMap(store, order) {
   ROWS.forEach((row) => {
     COLUMNS.forEach((column) => {
       const id = `${row}${column}`;
-      const blocked = hashString(`${order.details.flightNo}|${order.details.date}|${id}`) % 11 < 2;
       let status = 'available';
-      if (blocked) status = 'blocked';
       if (taken.has(id)) status = 'occupied';
       if (order.checkin && order.checkin.seat === id) status = 'selected';
       seats.push({ id, row, column, status });
@@ -85,12 +84,22 @@ export function buildSeatMap(store, order) {
 export function prepareCheckIn(store, order, seatId, now = new Date()) {
   assertFlightOrder(order);
   if (order.status !== ORDER_STATUS.PAID) {
-    throw conflict('INVALID_ORDER_STATE', '只有已支付的机票订单可以值机');
+    throw conflict('INVALID_ORDER_STATE', '只有已支付并出票的机票订单可以值机');
+  }
+  if (!Array.isArray(order.passengers) || order.passengers.length !== 1) {
+    throw conflict('SINGLE_CHECKIN_ONLY', '当前演示值机仅支持单人订单');
   }
   const departureAt = flightDeparture(order);
   if (departureAt === null) throw unprocessable('无法解析航班起飞时间');
-  if (departureAt <= now.getTime()) {
-    throw conflict('CHECKIN_CLOSED', '航班已起飞，无法值机');
+  const remaining = departureAt - now.getTime();
+  if (remaining > 48 * 60 * 60 * 1000) {
+    throw conflict('CHECKIN_WINDOW', '值机将在起飞前 48 小时开放');
+  }
+  if (remaining <= 45 * 60 * 1000) {
+    throw conflict('CHECKIN_WINDOW', '值机已在起飞前 45 分钟关闭');
+  }
+  if (!/^(?:[1-9]|[12]\d|30)[A-F]$/.test(String(seatId || ''))) {
+    throw unprocessable('请选择 1–30 排 A–F 座位');
   }
   const map = buildSeatMap(store, order);
   const seat = map.seats.find((item) => item.id === seatId);
@@ -98,23 +107,28 @@ export function prepareCheckIn(store, order, seatId, now = new Date()) {
   if (seat.status !== 'available') {
     throw conflict('SEAT_UNAVAILABLE', `座位 ${seatId} 不可用，请重新选择`);
   }
-  const checkedInAt = now.toISOString();
+  const ticketing = order.ticketing || issueTicket(order, now);
   return {
     seat: seat.id,
     gate: map.gate || gateFor(order),
-    boardingTime: subtractMinutes(order.details.dep, 40),
+    boardingTime: subtractMinutes(order.details.dep, 45),
     terminal: 'T2',
+    pnr: ticketing.pnr,
+    ticketNumber: ticketing.ticketNumber,
     boardingPassCode: `BP-${randomUUID()}`,
-    checkedInAt
+    checkedInAt: now.toISOString()
   };
 }
 
 export function boardingPassFor(order) {
   assertFlightOrder(order);
   if (!order.checkin) throw conflict('NOT_CHECKED_IN', '订单尚未完成值机');
+  const passenger = Array.isArray(order.passengers) && order.passengers[0]
+    ? order.passengers[0].name
+    : (order.contact ? order.contact.name : '旅客');
   return {
     orderId: order.id,
-    passenger: order.contact ? order.contact.name : '旅客',
+    passenger,
     flightNo: order.details.flightNo,
     airline: order.details.airline,
     from: order.details.from,
@@ -126,6 +140,8 @@ export function boardingPassFor(order) {
     terminal: order.checkin.terminal,
     boardingTime: order.checkin.boardingTime,
     seat: order.checkin.seat,
+    pnr: order.checkin.pnr || (order.ticketing && order.ticketing.pnr) || '',
+    ticketNumber: order.checkin.ticketNumber || (order.ticketing && order.ticketing.ticketNumber) || '',
     boardingPassCode: order.checkin.boardingPassCode,
     issuedAt: order.checkin.checkedInAt
   };

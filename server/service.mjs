@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { TRAVEL_DATA } from '../public/data.js';
 import { badRequest, conflict, forbidden, notFound, unprocessable } from './errors.mjs';
-import { buildFlightSearch, chinaDateKey, parseDateKey } from './pricing.mjs';
+import { buildFlightSearch, chinaDateKey, decorateRecommendations, parseDateKey } from './pricing.mjs';
 import { ORDER_STATUS, STATUS_LABELS, availableActions, transition } from './order-machine.mjs';
 import { boardingPassFor, buildSeatMap, prepareCheckIn } from './checkin.mjs';
 import { buildItinerary } from './itinerary.mjs';
+import { issueTicket } from './airline.mjs';
 
 const QUOTE_TTL_MS = 10 * 60 * 1000;
 const PENDING_TTL_MS = 15 * 60 * 1000;
@@ -46,6 +47,28 @@ function normalizeContact(input) {
     arrival: String(contact.arrival || '').trim().slice(0, 40),
     note: String(contact.note || '').trim().slice(0, 200)
   };
+}
+
+function orderPassengerCount(order) {
+  if (Array.isArray(order.passengers)) return order.passengers.length;
+  return Number(order.details && order.details.passengers) || 1;
+}
+
+function normalizeFlightPassengers(input, expected) {
+  if (!Array.isArray(input) || input.length !== expected) {
+    throw unprocessable(`请填写 ${expected} 位乘机人信息`);
+  }
+  return input.map((passenger, index) => {
+    const name = String(passenger && passenger.name || '').trim();
+    const document = String(passenger && passenger.document || '').trim();
+    if (name.length < 2 || name.length > 40) {
+      throw unprocessable(`旅客 ${index + 1} 的姓名应为 2–40 个字符`);
+    }
+    if (!/^[A-Za-z0-9]{6,20}$/.test(document)) {
+      throw unprocessable(`旅客 ${index + 1} 的演示证件号应为 6–20 位字母或数字`);
+    }
+    return { name, document };
+  });
 }
 
 function makeOrderId(now) {
@@ -134,13 +157,19 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     });
     const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS).toISOString();
     const searchDate = result.query.date;
-    result.results = result.results.map((flight) => {
-      const enriched = { ...flight, date: searchDate };
+    const available = result.results
+      .map((flight) => ({
+        ...flight,
+        date: searchDate,
+        seatsLeft: store.getAvailableFlightSeats(flight.id, flight.seats)
+      }))
+      .filter((flight) => flight.seatsLeft >= flight.passengers);
+    result.results = available.map((flight) => {
       const quoteId = `Q-${randomUUID()}`;
       quotes.set(quoteId, {
         id: quoteId,
         flightId: flight.id,
-        flight: enriched,
+        flight,
         unitPrice: flight.price,
         passengers: flight.passengers,
         cabin: flight.cabin,
@@ -149,11 +178,16 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
         usedAt: null
       });
       return {
-        ...enriched,
+        ...flight,
         quoteId,
         quoteExpiresAt: expiresAt
       };
     });
+    result.recommendation = decorateRecommendations(result.results);
+    result.inventory = {
+      note: '每个航班初始化 12–36 个模拟座位；下单时原子校验并扣减余票。',
+      availableFlights: result.results.length
+    };
     pruneQuotes(now);
     return result;
   }
@@ -228,6 +262,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     });
 
     let order;
+    let reservation = null;
     if (type === 'flight') {
       const quote = quotes.get(String(input.quoteId || ''));
       if (!quote) throw conflict('QUOTE_EXPIRED', '报价已失效，请重新搜索航班');
@@ -237,7 +272,14 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       }
       if (quote.usedAt) throw conflict('QUOTE_USED', '该报价已用于创建订单，请重新搜索');
       const flight = quote.flight;
+      const passengers = normalizeFlightPassengers(input.passengers, quote.passengers);
       const total = quote.unitPrice * quote.passengers;
+      reservation = {
+        flightId: flight.id,
+        totalSeats: Number(flight.seats) || 30,
+        count: quote.passengers
+      };
+      quote.usedAt = now.toISOString();
       order = {
         ...base,
         title: `${flight.from} → ${flight.to} · ${flight.flightNo}`,
@@ -246,6 +288,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
         guestLabel: `${quote.passengers}位成人`,
         meta: [flight.flightNo, quote.cabin, '直飞'],
         total,
+        passengers,
         items: [
           {
             type: 'flight',
@@ -275,11 +318,11 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           extraDay: flight.extraDay,
           cabin: quote.cabin,
           passengers: quote.passengers,
+          passengerNames: passengers.map((passenger) => passenger.name),
           unitPrice: quote.unitPrice,
           pricing: flight.pricing
         }
       };
-      quote.usedAt = now.toISOString();
     } else if (type === 'hotel') {
       const hotel = TRAVEL_DATA.getHotelById(String(input.hotelId || ''));
       if (!hotel) throw notFound('酒店不存在或已下架');
@@ -365,7 +408,16 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       throw badRequest('不支持的订单类型');
     }
 
-    await store.insertOrder(order);
+    if (reservation) {
+      const reserved = store.reserveFlightSeats(reservation.flightId, reservation.totalSeats, reservation.count);
+      if (!reserved) throw conflict('SOLD_OUT', '余票不足，请重新搜索航班');
+    }
+    try {
+      await store.insertOrder(order);
+    } catch (error) {
+      if (reservation) store.releaseFlightSeats(reservation.flightId, reservation.count);
+      throw error;
+    }
     return serializeOrder(order);
   }
 
@@ -380,6 +432,9 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           at: now,
           reason: '待付款订单超过 15 分钟，已自动失效'
         });
+        if (order.type === 'flight' && order.details && order.details.flightId) {
+          store.releaseFlightSeats(order.details.flightId, orderPassengerCount(order));
+        }
         changed = true;
       }
     }
@@ -422,11 +477,20 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       if (!fresh || fresh.status !== ORDER_STATUS.PENDING_PAYMENT) {
         throw conflict('INVALID_ORDER_STATE', '订单状态已变化，支付未完成');
       }
+      const ticketing = fresh.type === 'flight' ? issueTicket(fresh, now) : null;
       transition(fresh, ORDER_STATUS.PAID, {
         at: now,
         reason: `通过 ${payment.methodLabel} 完成本地模拟支付`,
-        patch: { payment }
+        patch: { payment, ticketing }
       });
+      if (ticketing) {
+        fresh.history.push({
+          status: ORDER_STATUS.PAID,
+          statusLabel: '已出票',
+          at: now.toISOString(),
+          reason: `模拟航信出票完成，票号 ${ticketing.ticketNumber}，PNR ${ticketing.pnr}`
+        });
+      }
       await store.replaceOrder(fresh);
       return serializeOrder(fresh);
     } finally {
@@ -451,6 +515,9 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           : null
       }
     };
+    if (order.type === 'flight' && order.details && order.details.flightId) {
+      store.releaseFlightSeats(order.details.flightId, orderPassengerCount(order));
+    }
     transition(order, ORDER_STATUS.CANCELLED, {
       at: now,
       reason: wasPaid ? '订单已取消，本地模拟退款已完成' : '订单已取消',

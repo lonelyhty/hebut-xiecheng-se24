@@ -69,12 +69,13 @@ flowchart TB
     HTTP["server/app.mjs<br/>HTTP / 路由 / 静态托管"]
     AUTH["auth.mjs<br/>本地会话与角色"]
     SERVICE["service.mjs<br/>应用服务编排"]
-    PRICING["pricing.mjs<br/>动态票价 / 智能推荐"]
+    PRICING["pricing.mjs<br/>动态票价 / 低价日历 / 智能推荐"]
+    AIRLINE["airline.mjs<br/>模拟航信出票 / PNR"]
     ORDER["order-machine.mjs<br/>订单状态机"]
-    CHECKIN["checkin.mjs<br/>选座 / 登机牌"]
+    CHECKIN["checkin.mjs<br/>30 排选座 / 值机窗口 / 登机牌"]
     ITIN["itinerary.mjs<br/>行程规划"]
     PAYMENT["payments.mjs<br/>MockPay 适配器"]
-    STORE["store.mjs<br/>JSON 持久化"]
+    STORE["store.mjs<br/>JSON 持久化 / 航班库存"]
   end
   DATA[("data/store.json")]
   UI --> API_CLIENT
@@ -82,6 +83,7 @@ flowchart TB
   HTTP --> AUTH
   HTTP --> SERVICE
   SERVICE --> PRICING
+  SERVICE --> AIRLINE
   SERVICE --> ORDER
   SERVICE --> CHECKIN
   SERVICE --> ITIN
@@ -99,7 +101,8 @@ flowchart TB
 |---|---|---|
 | 前端交互 | `public/app.js` | 页面状态、表单、搜索结果、订单页、值机/登机牌、降级逻辑 |
 | 前端 API 客户端 | `public/api.js` | 统一请求、Token 存储、错误映射 |
-| 共享目录 | `public/data.js` | 城市、酒店、航班、门票的确定性模拟库存；浏览器与 Node 服务共用 |
+| 共享目录 | `public/data.js` | 8 个航班城市/机场/航站楼、5 家航空公司、酒店、门票的确定性模拟目录；浏览器与 Node 服务共用 |
+| 出票适配 | `server/airline.mjs` | 支付成功后生成模拟票号与 PNR；生产替换为航信/GDS 出票适配器 |
 | HTTP 层 | `server/app.mjs` | 静态文件、路由、鉴权、JSON 解析、错误响应、安全响应头 |
 | 应用层 | `server/service.mjs` | 报价存储、订单编排、权限、支付、过期处理 |
 | 领域层 | `pricing.mjs` / `order-machine.mjs` / `checkin.mjs` / `itinerary.mjs` | 动态定价、状态转换、值机规则、行程生成 |
@@ -109,10 +112,11 @@ flowchart TB
 设计取舍：
 
 - **无第三方依赖**：本地演示优先保证开箱即用；HTTP 与数据持久化都使用 Node 内置能力。
-- **共享目录模块**：服务端与浏览器使用同一份模拟库存，避免前端展示与后端校验出现 SKU/价格不一致。
-- **服务端权威**：订单金额、报价有效性、状态转换、座位占用均在后端重新校验；前端只负责展示与发起动作。
-- **报价锁定**：动态票价会随时间变化，因此搜索返回 10 分钟有效的 `quoteId`；下单只接受有效且未使用的报价。
-- **单进程适用**：报价保存在内存，订单保存在 JSON 文件，适合演示与单机测试；生产应替换为数据库与分布式缓存。
+- **共享目录模块**：服务端与浏览器使用同一份模拟目录，避免前端展示与后端校验出现航线、机场、价格或库存不一致。航班目录限定上海、北京、广州、深圳、成都、杭州、三亚、西安 8 个城市，共 56 个方向组合，每个日期生成 5 个航班。
+- **服务端权威**：订单金额、报价有效性、乘机人信息、余票、状态转换与座位占用均在后端重新校验；前端只负责展示与发起动作。
+- **报价锁定**：动态票价按 5 分钟价格桶变化，因此搜索返回 10 分钟有效的 `quoteId`；下单只接受有效且未使用的报价。
+- **库存扣减**：创建机票订单时从本地航班库存中同步扣减席位；取消与超时释放。单进程 Node 事件循环保证“校验 + 扣减 + 写订单”在同一个同步段完成。
+- **单进程适用**：报价保存在内存，订单与库存保存在 JSON 文件，适合演示与单机测试；生产应替换为数据库事务与分布式缓存。
 
 ## 4. 关键业务事件流
 
@@ -134,12 +138,13 @@ sequenceDiagram
   API->>Service: searchFlights(query)
   Service->>Pricing: buildFlightSearch(...)
   Pricing->>Catalog: getFlights(from, to, date)
-  Catalog-->>Pricing: 航班时刻与基础库存
-  Pricing->>Pricing: 需求/时间/周末/舱位因子计算
-  Pricing->>Pricing: 评分并生成推荐标签
-  Pricing-->>Service: 航班、价格、推荐结果
-  Service->>Quotes: 保存每个航班的 10 分钟报价
-  Service-->>API: results + quoteId + recommendation
+  Catalog-->>Pricing: 8 城机场/航站楼、5 家航司、5 班时刻与基础座位
+  Pricing->>Pricing: 5 分钟价格桶 + 临近调整 + 需求扰动 + 舱位因子
+  Pricing->>Pricing: 评分并生成推荐标签与 7 日低价日历
+  Pricing-->>Service: 航班、价格、日历、推荐结果
+  Service->>Service: 读取本地余票并过滤不足人数的航班
+  Service->>Quotes: 保存每个可用航班的 10 分钟报价
+  Service-->>API: results + quoteId + calendar + recommendation
   API-->>Web: 动态票价与智能推荐
   Web-->>Traveler: 推荐卡片、价格、余票、推荐理由
 ```
@@ -155,6 +160,7 @@ sequenceDiagram
   participant API as 订单 API
   participant Orders as 状态机
   participant Pay as MockPay
+  participant Airline as 模拟航信
   participant DCS as 本地值机服务
   participant Store as JSON 存储
 
@@ -162,23 +168,26 @@ sequenceDiagram
   Web->>Auth: POST /api/auth/login（手机号 + 888888 + 角色）
   Auth->>Store: 创建/读取用户与会话
   Auth-->>Web: Bearer Token
-  Web->>API: POST /api/orders（quoteId + 联系人）
-  API->>API: 校验登录、报价有效期、报价未被使用
+  Web->>API: POST /api/orders（quoteId + 1–6 位乘机人 + 联系人）
+  API->>API: 校验登录、报价有效期、报价未被使用、乘机人数与证件
+  API->>Store: 校验余票并扣减航班库存
   API->>Orders: 创建 PENDING_PAYMENT 订单
-  Orders->>Store: 持久化订单与状态历史
+  Orders->>Store: 持久化订单、状态历史与库存
   API-->>Web: 待付款订单
   Web->>API: POST /api/orders/:id/pay
   API->>Pay: charge(amount, method)
   Pay-->>API: SUCCESS + transactionId
-  API->>Orders: PENDING_PAYMENT → PAID
-  Orders->>Store: 持久化支付信息
-  API-->>Web: 已支付订单
+  API->>Airline: 模拟出票并生成票号 / PNR
+  Airline-->>API: ticketNumber / pnr
+  API->>Orders: PENDING_PAYMENT → PAID（含出票事件）
+  Orders->>Store: 持久化支付与出票信息
+  API-->>Web: 已支付、已出票订单
   Web->>API: GET /api/orders/:id/seats
-  API->>DCS: 读取本地座位图与占用状态
-  DCS-->>API: 48 个座位
+  API->>DCS: 读取 30 排 A–F 座位图与占用状态
+  DCS-->>API: 180 个座位
   Web->>API: POST /api/orders/:id/checkin（seat）
-  API->>DCS: 校验航班、订单状态、座位可用
-  DCS-->>API: gate / boardingTime / boardingPassCode
+  API->>DCS: 校验单客订单、48h–45min 窗口、座位可用
+  DCS-->>API: PNR / gate / boardingTime / 登机牌
   API->>Orders: PAID → CHECKED_IN
   Orders->>Store: 持久化值机信息
   API-->>Web: 订单 + 登机牌数据
@@ -209,39 +218,38 @@ sequenceDiagram
 
 ## 5. 动态票价与智能推荐
 
-### 5.1 动态票价模型
+### 5.1 航班目录与动态票价模型
 
-每次搜索按 30 分钟为一个价格桶计算，账单价格与服务端报价保持一致：
+航班目录限定上海、北京、广州、深圳、成都、杭州、三亚、西安 8 个城市，使用真实城市三字码、机场名称与航站楼；每个方向组合按日期生成 5 班时刻，由东方航空、中国国航、南方航空、吉祥航空、四川航空执飞。航程时长由城市坐标距离推导，基础座位数为 12–36 个。该目录与时刻是本地模拟，不对应真实航班计划。
+
+每次搜索按 5 分钟为一个价格桶计算，账单价格与服务端报价保持一致：
 
 ```text
-price = round10(
-  baseFare
-  × demandFactor
-  × timeFactor
-  × weekendFactor
+price = round(
+  (baseFare + proximityAdjustment + demandAdjustment)
   × cabinFactor
-  + taxes
-)
+) + taxFee
 ```
 
 | 因子 | 取值范围 / 说明 |
 |---|---|
-| `baseFare` | 模拟目录中的基础票价 |
-| `demandFactor` | 0.90–1.35，由「航线 + 日期 + 时间桶 + 航班号」确定性哈希生成 |
-| `timeFactor` | 1.00–1.30，越临近出发越高 |
-| `weekendFactor` | 周五/周六/周日为 1.08，其余为 1.00 |
+| `baseFare` | 模拟目录中的基础票价（由航线与日期确定性生成） |
+| `proximityAdjustment` | 距出发不足 3 天 +120，不足 14 天 +40，其余 0 |
+| `demandAdjustment` | 由「航班 + 5 分钟时间桶」确定性哈希得到 −30…+30 |
 | `cabinFactor` | 经济舱 1.00、超级经济舱 1.35、商务舱 2.60、头等舱 3.80 |
-| `taxes` | 固定模拟税费 50 元 |
+| `taxFee` | 固定模拟税费 80 元 |
 
 每次搜索还会返回：
 
-- `priceContext.bucket`：价格时间桶；
-- `priceContext.validUntil`：当前桶结束时间；
-- `pricing.reasons`：例如“临近出发价格上浮”“周末出行需求较高”；
-- `seatsLeft`：动态余票提示；
+- `calendar`：所选日期前后 3 天的模拟最低含税价，供日期低价栏切换；
+- `priceContext.bucket` / `validUntil`：5 分钟价格桶与当前桶结束时间；
+- `pricing.reasons`：例如“临近出发价格上浮”“该时段需求较高”；
+- `seatsLeft`：来自本地库存的真实可用座位数；
 - `quoteId` / `quoteExpiresAt`：锁定 10 分钟的报价。
 
-创建订单时后端重新检查报价是否存在、未过期、未使用，并使用报价中的单价与乘客数计算总额。报价被使用后不可复用，避免同一报价重复下单。
+服务端只对“有足够余票且满足乘机人数”的航班创建报价。创建订单时重新检查报价、乘机人数、证件与余票，并扣减库存；报价被使用后不可复用。取消或 15 分钟支付超时会把座位释放回库存。
+
+搜索日期限制为今天起 180 天；页面使用低价日期栏、航空公司筛选和价格预算筛选辅助选择。
 
 ### 5.2 智能推荐
 
@@ -266,12 +274,12 @@ price = round10(
 
 ```mermaid
 stateDiagram-v2
-  [*] --> PENDING_PAYMENT: 创建订单
-  PENDING_PAYMENT --> PAID: 支付成功
-  PENDING_PAYMENT --> CANCELLED: 用户取消
-  PENDING_PAYMENT --> EXPIRED: 15 分钟未支付
-  PAID --> CHECKED_IN: 机票在线值机
-  PAID --> CANCELLED: 取消并模拟退款
+  [*] --> PENDING_PAYMENT: 创建订单并扣减余票
+  PENDING_PAYMENT --> PAID: 支付成功并模拟出票
+  PENDING_PAYMENT --> CANCELLED: 用户取消并释放库存
+  PENDING_PAYMENT --> EXPIRED: 15 分钟未支付并释放库存
+  PAID --> CHECKED_IN: 单人机票在值机窗口内选座
+  PAID --> CANCELLED: 取消并模拟退款/释放库存
   PAID --> COMPLETED: 出行完成（预留）
   CHECKED_IN --> COMPLETED: 出行完成（预留）
   CANCELLED --> [*]
@@ -281,20 +289,22 @@ stateDiagram-v2
 
 | 当前状态 | 允许的下一状态 | 触发操作 | 业务校验 |
 |---|---|---|---|
-| `PENDING_PAYMENT` | `PAID` | 支付 | 金额由服务端生成；支付锁防止并发重复支付 |
-| `PENDING_PAYMENT` | `CANCELLED` | 取消 | 订单所有者或旅行社 |
-| `PENDING_PAYMENT` | `EXPIRED` | 超时任务 | 创建时间超过 15 分钟 |
-| `PAID` | `CHECKED_IN` | 在线值机 | 仅机票；起飞前；座位可用 |
-| `PAID` | `CANCELLED` | 取消 | 生成模拟退款记录 |
+| `PENDING_PAYMENT` | `PAID` | 支付 | 金额由服务端生成；支付锁防止并发重复支付；成功后模拟出票并写入票号/PNR |
+| `PENDING_PAYMENT` | `CANCELLED` | 取消 | 订单所有者或旅行社；释放已扣减余票 |
+| `PENDING_PAYMENT` | `EXPIRED` | 超时任务 | 创建时间超过 15 分钟；释放余票 |
+| `PAID` | `CHECKED_IN` | 在线值机 | 仅单人机票；起飞前 48 小时至 45 分钟；座位可用；生成 PNR/登机牌 |
+| `PAID` | `CANCELLED` | 取消 | 生成模拟退款记录；释放余票 |
 | `CHECKED_IN` | `COMPLETED` | 预留 | 当前未开放 |
 | `CANCELLED` / `EXPIRED` / `COMPLETED` | 无 | — | 终态，不可支付或值机 |
 
 不变量：
 
 - 任意时刻只能通过状态机 API 改变状态；非法转换返回 409 `INVALID_ORDER_STATE`。
-- 每次状态变化写入 `history`（状态、时间、原因）。
-- 已值机订单不可取消。
+- 每次状态变化写入 `history`（状态、时间、原因）；支付成功额外追加模拟出票记录。
+- 已值机订单不可取消；多乘机人订单可支付出票，但当前值机演示只支持单人。
 - 支付成功但重复支付返回 409；同一报价只能创建一个订单。
+- 航班库存只在创建订单时扣减，取消或超时释放；已值机订单保留占用。
+- 值机窗口为起飞前 48 小时至 45 分钟，窗口外返回 409 `CHECKIN_WINDOW`。
 
 ## 7. 外部模拟 API 集成方案
 
@@ -303,8 +313,9 @@ stateDiagram-v2
 | 外部能力 | 当前实现 | 生产接入建议 |
 |---|---|---|
 | 支付网关 | `server/payments.mjs` 的 `charge({orderId, amount, method})`，本地延迟后返回成功流水 | 接入持牌支付服务；增加商户签名、幂等键、异步 webhook、退款接口、超时与重试 |
-| 航信/航班库存 | `public/data.js` 的确定性模拟航班目录 + `pricing.mjs` 动态价格 | 通过服务端供应商适配器访问持牌 GDS/航司 API；加入缓存、限流、舱位库存校验与报价过期处理 |
-| 值机/DCS | `server/checkin.mjs` 的本地座位图、登机口与登机牌 | 调用航司 DCS/离港系统；服务端保存 PNR/票号；座位锁定时效与登机牌签名 |
+| 航信/航班库存 | `public/data.js` 的 8 城模拟航班目录 + `pricing.mjs` 动态价格 + `store.mjs` 本地库存 | 通过服务端供应商适配器访问持牌 GDS/航司 API；加入缓存、限流、舱位库存校验与报价过期处理 |
+| 出票/航信 | `server/airline.mjs` 模拟出票，返回票号与 PNR | 接入航信/GDS 出票，保存真实票号、PNR、出票状态并对失败做补偿 |
+| 值机/DCS | `server/checkin.mjs` 的 30 排座位图、值机窗口、登机口与登机牌 | 调用航司 DCS/离港系统；服务端保存 PNR/票号；座位锁定时效与登机牌签名 |
 | 短信/身份认证 | 固定验证码 `888888` + 本地 Bearer Token | 短信服务 + OIDC/多因素认证 + 会话轮换；禁止生产使用固定验证码 |
 | 酒店/门票库存 | 共享模拟目录 | 供应商适配器、库存缓存、价格与取消政策校验 |
 
@@ -327,17 +338,17 @@ stateDiagram-v2
 | POST | `/api/auth/login` | 否 | `{phone, code, role}`；演示验证码 `888888` |
 | GET | `/api/auth/me` | 是 | 获取当前用户与角色 |
 | POST | `/api/auth/logout` | 是 | 注销会话 |
-| GET | `/api/flights/search` | 否 | `from,to,date,passengers,cabin`；可带 `airline,departWindow,maxPrice` |
+| GET | `/api/flights/search` | 否 | `from,to,date,passengers(1–6),cabin`；可带 `airline,departWindow,maxPrice`；返回 5 个航班、`calendar`、`quoteId` 与推荐 |
 | GET | `/api/hotels/search` | 否 | `city,checkin,checkout[,keyword,level]` |
 | GET | `/api/attractions/search` | 否 | `city,date[,keyword]` |
 | POST | `/api/itineraries` | 否 | `{city, days, preferences}` |
-| POST | `/api/orders` | 是 | `type=flight` 用 `quoteId`；`hotel` 用 `hotelId/roomIndex/checkin/checkout`；`ticket` 用 `ticketId/city/date` |
+| POST | `/api/orders` | 是 | `type=flight` 用 `quoteId + passengers[{name,document}] + contact`；`hotel` 用 `hotelId/roomIndex/checkin/checkout`；`ticket` 用 `ticketId/city/date` |
 | GET | `/api/orders` | 是 | 当前用户订单；旅行社可加 `?scope=all` |
 | GET | `/api/orders/:id` | 是 | 订单详情（所有者或旅行社） |
 | POST | `/api/orders/:id/pay` | 是 | `{method: alipay|wechat|card}` |
 | POST | `/api/orders/:id/cancel` | 是 | 待付款或已支付可取消 |
 | GET | `/api/orders/:id/seats` | 是 | 已支付/已值机机票订单的座位图 |
-| POST | `/api/orders/:id/checkin` | 是 | `{seat}`；仅已支付机票 |
+| POST | `/api/orders/:id/checkin` | 是 | `{seat}`；仅已支付、单人多票；窗口 48h–45min；座位 1–30 排 A–F |
 | GET | `/api/orders/:id/boarding-pass` | 是 | 已值机订单的登机牌数据 |
 
 错误统一为：
@@ -352,12 +363,13 @@ stateDiagram-v2
 
 - `users`：`id, phone, name, role, createdAt`
 - `sessions`：`token, userId, role, createdAt, expiresAt`（7 天）
-- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, contact, items, details, payment, checkin, history, createdAt, updatedAt`
+- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, contact, passengers, items, details, payment, ticketing, checkin, history, createdAt, updatedAt`
 - `quotes`：仅内存保存，`id, flight, unitPrice, passengers, expiresAt, usedAt`，10 分钟 TTL
+- `inventory`：按航班 ID 保存 `{ totalSeats, reservedSeats }`，用于余票校验与释放
 
 持久化策略：
 
-- `data/store.json` 保存用户、会话与订单；写入使用临时文件 + 原子重命名，避免部分写入。
+- `data/store.json` 保存用户、会话、订单与航班库存；写入使用临时文件 + 原子重命名，避免部分写入。
 - 测试使用临时目录，不污染演示数据。
 - 报价只存在内存中，服务重启后旧报价失效；这符合“报价短时锁定”的业务语义。
 - 单进程场景下 Node 事件循环与串行写入保证一致性；生产应使用数据库事务/行锁。
@@ -368,7 +380,9 @@ stateDiagram-v2
 
 - 订单读取与操作进行所有者/旅行社权限校验；
 - 金额由后端计算，前端不传总额；
-- 值机座位可用性由后端校验；
+- 乘机人数、姓名与演示证件号由后端校验；
+- 航班库存在创建订单时扣减，取消/超时释放，避免超卖；
+- 值机座位可用性由后端校验，且限制单人订单与值机窗口；
 - 请求体大小限制 1 MB；
 - 静态文件路径防目录穿越；
 - 响应头 `X-Content-Type-Options: nosniff` 与 `Referrer-Policy: no-referrer`；
@@ -386,8 +400,8 @@ stateDiagram-v2
 
 ## 12. 后续迭代
 
-1. 接入数据库（订单事务、旅客/乘机人表、PNR 与票号）。
+1. 接入数据库（订单事务、乘机人表、真实 PNR/票号与多人值机）。
 2. 增加管理端：航班/酒店库存、价格规则、订单调度与退款审核。
 3. 增加旅行社批量下单、企业协议价和发票信息。
-4. 引入真实地图与机队/机场数据，完善出发时段与行李规则。
+4. 引入真实航班库存、机队/机场数据，完善出发时段与行李规则；当前只支持 8 个城市的本地模拟航班。
 5. 增加无障碍审计、移动端视觉回归、端到端跨浏览器测试。

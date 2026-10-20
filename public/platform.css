@@ -270,3 +270,56 @@
   .boarding-pass-sheet { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .bp-actions, .booking-hint, .modal-close { display: none !important; }
 }
+
+/* ---------- Flight date strip, filters and passenger form ---------- */
+.flight-date-strip {
+  margin-top: 13px; padding: 12px 14px;
+  background: #fff; border: 1px solid #edf1f7; border-radius: 12px;
+}
+.date-strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.date-strip-head > span { font-size: 13px; font-weight: 650; color: #33445c; }
+.date-strip-head > small { font-size: 10px; color: #9aa6b6; }
+.date-strip-scroll { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.date-chip {
+  flex: 0 0 auto; min-width: 98px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #e8eef6; background: #fbfdff; text-align: left;
+  display: flex; flex-direction: column; gap: 4px; transition: border-color .15s, background .15s;
+}
+.date-chip:hover { border-color: #a9d4ff; background: #f5fbff; }
+.date-chip.is-active { border-color: var(--blue); background: #edf7ff; box-shadow: 0 0 0 2px rgba(0,134,246,.07); }
+.date-chip > span { font-size: 11px; color: #5e6e84; white-space: nowrap; }
+.date-chip > span small { color: #9aa6b6; font-size: 9px; }
+.date-chip > strong { font-size: 15px; color: var(--blue); font-weight: 700; line-height: 1.1; }
+.date-chip > strong small { font-size: 9px; font-weight: 400; color: #8a99ac; margin-left: 2px; }
+.flight-filter-panel .filter-group h4 span { font-weight: 400; color: #a1adbd; font-size: 9px; }
+.check-list { display: flex; flex-direction: column; gap: 3px; }
+.check-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #5d6c82; padding: 4px 2px; cursor: pointer; }
+.check-row input { accent-color: var(--blue); margin: 0; }
+.check-row:hover { color: var(--blue); }
+.price-budget { font-size: 12px; color: #56667c; margin-bottom: 6px; }
+.price-budget strong { color: var(--blue); font-size: 15px; }
+.price-range { width: 100%; accent-color: var(--blue); }
+.range-labels { display: flex; justify-content: space-between; margin-top: 3px; font-size: 9px; color: #9aa6b6; }
+.flight-stock-note { font-size: 10px; line-height: 1.7; color: #8a96a8; background: #f7faff; border-radius: 6px; padding: 8px; }
+.passenger-section { padding: 11px 12px; border: 1px solid #e8f1fd; border-radius: 9px; background: #f9fcff; }
+.passenger-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; font-size: 12px; font-weight: 600; color: #41536d; }
+.passenger-fieldset { border: 1px solid #e6eef8; border-radius: 8px; padding: 9px 11px 10px; margin: 0 0 8px; background: #fff; }
+.passenger-fieldset:last-child { margin-bottom: 0; }
+.passenger-fieldset legend { font-size: 10px; color: #5f82a7; padding: 0 5px; }
+.passenger-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.seat-map { max-height: 430px; overflow-y: auto; }
+.order-page-facts .ticket-pill { color: #2b76b8; }
+@media (max-width: 680px) {
+  .date-chip { min-width: 86px; padding: 7px 8px; }
+  .passenger-grid { grid-template-columns: 1fr; }
+}
+
+/* Flight cards with the airline filter visible need a wider route column. */
+.transport-card { grid-template-columns: 156px minmax(0, 1fr) 122px 118px; gap: 12px; }
+.flight-mid > span, .flight-mid > strong, .flight-end > span { white-space: nowrap; }
+.flight-route { grid-template-columns: 68px minmax(0, 1fr) 68px; gap: 8px; }
+.flight-end strong { font-size: 21px; }
+@media (max-width: 1180px) {
+  .transport-card { grid-template-columns: 168px minmax(0, 1fr) 128px 120px; }
+}
+.airline-copy span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

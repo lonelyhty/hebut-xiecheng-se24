@@ -331,24 +331,30 @@
     return cities.find(function (c) { return c.name === key; }) || null;
   }
 
-  const AIRPORTS = {
-    '上海': '虹桥T2', '北京': '首都T3', '广州': '白云T2', '深圳': '宝安T3', '成都': '天府T2',
-    '杭州': '萧山T3', '南京': '禄口T2', '重庆': '江北T3', '西安': '咸阳T3', '武汉': '天河T3',
-    '昆明': '长水T1', '长沙': '黄花T2', '厦门': '高崎T3', '青岛': '胶东T1', '三亚': '凤凰T1',
-    '哈尔滨': '太平T2', '天津': '滨海T2', '大连': '周水子', '沈阳': '桃仙T3', '郑州': '新郑T2'
-  };
+  const FLIGHT_CITIES = [
+    { code: 'SHA', name: '上海', en: 'Shanghai', region: 'domestic', hot: true, airport: '虹桥国际机场', terminal: 'T2', x: 76, y: 55 },
+    { code: 'BJS', name: '北京', en: 'Beijing', region: 'domestic', hot: true, airport: '首都国际机场', terminal: 'T3', x: 66, y: 24 },
+    { code: 'CAN', name: '广州', en: 'Guangzhou', region: 'domestic', hot: true, airport: '白云国际机场', terminal: 'T2', x: 61, y: 78 },
+    { code: 'SZX', name: '深圳', en: 'Shenzhen', region: 'domestic', hot: true, airport: '宝安国际机场', terminal: 'T3', x: 65, y: 81 },
+    { code: 'CTU', name: '成都', en: 'Chengdu', region: 'domestic', hot: true, airport: '天府国际机场', terminal: 'T2', x: 36, y: 56 },
+    { code: 'HGH', name: '杭州', en: 'Hangzhou', region: 'domestic', hot: true, airport: '萧山国际机场', terminal: 'T4', x: 73, y: 60 },
+    { code: 'SYX', name: '三亚', en: 'Sanya', region: 'domestic', hot: true, airport: '凤凰国际机场', terminal: 'T1', x: 52, y: 93 },
+    { code: 'XIY', name: '西安', en: "Xi'an", region: 'domestic', hot: true, airport: '咸阳国际机场', terminal: 'T3', x: 48, y: 42 }
+  ];
+  const FLIGHT_CITY_MAP = Object.fromEntries(FLIGHT_CITIES.map(function (city) { return [city.name, city]; }));
+  const FLIGHT_AIRLINES = [
+    { name: '东方航空', code: 'MU', color: '#d93c4b' },
+    { name: '中国国航', code: 'CA', color: '#a52b36' },
+    { name: '南方航空', code: 'CZ', color: '#2386c8' },
+    { name: '吉祥航空', code: 'HO', color: '#a26843' },
+    { name: '四川航空', code: '3U', color: '#c93147' }
+  ];
   const STATIONS = {
     '上海': '上海虹桥', '北京': '北京南', '广州': '广州南', '深圳': '深圳北', '杭州': '杭州东',
     '南京': '南京南', '成都': '成都东', '重庆': '重庆北', '西安': '西安北', '武汉': '武汉站',
     '长沙': '长沙南', '昆明': '昆明南', '厦门': '厦门北', '青岛': '青岛北', '天津': '天津西',
     '苏州': '苏州北', '无锡': '无锡东', '郑州': '郑州东', '济南': '济南西'
   };
-  const CARRIERS = [
-    { name: '云翼航空', code: 'YY', color: '#2f6fed' },
-    { name: '星联航空', code: 'XL', color: '#f97316' },
-    { name: '远航航空', code: 'YH', color: '#0f9b7a' },
-    { name: '晴天航空', code: 'QT', color: '#8b5cf6' }
-  ];
 
   function pad2(n) {
     return String(n).padStart(2, '0');
@@ -363,44 +369,56 @@
   }
 
   function getFlights(from, to, date) {
-    const source = normalizeCity(from);
-    const target = normalizeCity(to);
-    if (!source || !target || source === target) return [];
-    const rnd = makeRng(hashString(source + '>' + target + '|' + (date || '')));
-    const baseHour = 6 + Math.floor(rnd() * 2);
-    const results = [];
-    const total = 6;
-    for (let i = 0; i < total; i += 1) {
-      const carrier = CARRIERS[Math.floor(rnd() * CARRIERS.length)];
-      const depHour = baseHour + i * 2 + Math.floor(rnd() * 2);
-      const depMinute = Math.floor(rnd() * 6) * 10;
-      const dep = pad2(Math.min(depHour, 23)) + ':' + pad2(depMinute);
-      const durationMin = 95 + Math.floor(rnd() * 155);
+    const sourceName = normalizeCity(from);
+    const targetName = normalizeCity(to);
+    if (!sourceName || !targetName || sourceName === targetName) return [];
+    const source = FLIGHT_CITY_MAP[sourceName];
+    const target = FLIGHT_CITY_MAP[targetName];
+    if (!source || !target) return [];
+    const dateKey = date || '';
+    const seed = hashString(sourceName + '>' + targetName + '|' + dateKey);
+    const distance = Math.hypot(source.x - target.x, source.y - target.y);
+    const durationMin = Math.max(75, Math.round(distance * 3.2 + 60));
+    const departureTimes = [[7, 15], [9, 30], [12, 5], [15, 45], [19, 20]];
+    return FLIGHT_AIRLINES.map(function (airline, index) {
+      const dep = pad2(departureTimes[index][0]) + ':' + pad2(departureTimes[index][1]);
       const arrival = addMinutes(dep, durationMin);
-      const price = round10(360 + rnd() * 960);
-      results.push({
-        id: 'F-' + source + '-' + target + '-' + i,
-        airline: carrier.name,
-        code: carrier.code,
-        color: carrier.color,
-        flightNo: carrier.code + (1000 + Math.floor(rnd() * 8600)),
-        from: source,
-        to: target,
-        fromAirport: AIRPORTS[source] || source + '机场',
-        toAirport: AIRPORTS[target] || target + '机场',
+      const flightNo = airline.code + (1100 + (seed % 6000) + index * 13);
+      const departureIso = dateKey ? dateKey + 'T' + dep + ':00+08:00' : '';
+      const arrivalIso = departureIso
+        ? new Date(Date.parse(departureIso) + durationMin * 60000).toISOString()
+        : '';
+      const baseFare = 280 + (seed % 220) + index * 81;
+      return {
+        id: sourceName + '-' + targetName + '-' + dateKey + '-' + index,
+        airline: airline.name,
+        code: airline.code,
+        color: airline.color,
+        flightNo: flightNo,
+        number: flightNo,
+        from: sourceName,
+        to: targetName,
+        fromAirport: source.airport + ' ' + source.terminal,
+        toAirport: target.airport + ' ' + target.terminal,
+        fromCity: { code: source.code, name: source.name, airport: source.airport, terminal: source.terminal },
+        toCity: { code: target.code, name: target.name, airport: target.airport, terminal: target.terminal },
+        date: dateKey,
         dep: dep,
         arr: arrival.time,
         extraDay: arrival.extraDay,
+        departure: departureIso,
+        arrival: arrivalIso,
         duration: Math.floor(durationMin / 60) + '小时' + pad2(durationMin % 60) + '分',
         durationMin: durationMin,
-        aircraft: ['空客A320', '空客A330', '波音737-800', '波音787'][Math.floor(rnd() * 4)],
+        aircraft: index % 2 ? '空客 A320' : '波音 737-800',
         cabin: '经济舱',
-        onTime: 88 + Math.floor(rnd() * 11),
-        price: price,
+        onTime: 88 + (hashString(flightNo + dateKey + 'ontime') % 11),
+        price: baseFare,
+        base: baseFare,
+        seats: 12 + index * 6,
         stops: '直飞'
-      });
-    }
-    return results;
+      };
+    });
   }
 
   function getTrains(from, to, date) {
@@ -529,9 +547,12 @@
   export const TRAVEL_DATA = {
     IMG: IMG,
     cities: cities,
+    flightCities: FLIGHT_CITIES,
+    flightAirlines: FLIGHT_AIRLINES,
     getHotels: getHotels,
     getHotelById: getHotelById,
     findCity: findCity,
+    findFlightCity: function (city) { return FLIGHT_CITY_MAP[normalizeCity(city)] || null; },
     normalizeCity: normalizeCity,
     getFlights: getFlights,
     getTrains: getTrains,
@@ -539,6 +560,9 @@
     searchHotels: searchHotels,
     recommendCities: recommendCities,
     destinations: destinations,
-    airportFor: function (city) { return AIRPORTS[normalizeCity(city)] || normalizeCity(city) + '机场'; },
+    airportFor: function (city) {
+      const flightCity = FLIGHT_CITY_MAP[normalizeCity(city)];
+      return flightCity ? flightCity.airport + ' ' + flightCity.terminal : normalizeCity(city) + '机场';
+    },
     stationFor: function (city) { return STATIONS[normalizeCity(city)] || normalizeCity(city) + '站'; }
   };

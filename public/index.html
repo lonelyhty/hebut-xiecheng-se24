@@ -286,7 +286,7 @@
                       <button class="trip-tab is-active" type="button" data-trip="oneway">单程</button>
                       <button class="trip-tab" type="button" data-trip="roundtrip">往返</button>
                     </div>
-                    <span class="trip-note">本地航班数据为模拟生成</span>
+                    <span class="trip-note">国内 8 城 · 56 条航线 · 模拟航班</span>
                   </div>
                   <div class="field-row field-row-main flight-main">
                     <div class="field field-city" id="flightFromField">
@@ -572,6 +572,7 @@
           </div>
           <button class="ghost-button" id="editSearch" type="button">修改搜索</button>
         </div>
+        <div class="flight-date-strip" id="flightDateStrip" hidden></div>
         <div class="results-layout" id="resultsLayout">
           <aside class="filter-panel" id="filterPanel">
             <div class="filter-head"><h3>筛选</h3><button id="resetFilters" type="button">重置</button></div>
@@ -603,6 +604,24 @@
               </div>
             </div>
             <div class="filter-tip"><svg><use href="#i-info"></use></svg><span>筛选会即时应用到当前模拟结果。</span></div>
+          </aside>
+          <aside class="filter-panel flight-filter-panel" id="flightFilterPanel" hidden>
+            <div class="filter-head"><h3>航班筛选</h3><button id="resetFlightFilters" type="button">重置</button></div>
+            <div class="filter-group">
+              <h4>航空公司</h4>
+              <div class="check-list" id="airlineFilters"></div>
+            </div>
+            <div class="filter-group">
+              <h4>价格预算 <span>含税 / 人</span></h4>
+              <div class="price-budget">¥ <strong id="flightBudgetLabel">4,000</strong> 以下</div>
+              <input class="price-range" id="flightPriceRange" type="range" min="300" max="4000" step="50" value="4000" aria-label="航班最高价格">
+              <div class="range-labels"><span>¥300</span><span id="flightRangeMaxLabel">¥4,000</span></div>
+            </div>
+            <div class="filter-group">
+              <h4>余票与出票</h4>
+              <div class="flight-stock-note">仅显示满足乘机人数的余票；下单后扣减库存，取消或超时自动释放。</div>
+            </div>
+            <div class="filter-tip"><svg><use href="#i-info"></use></svg><span>筛选只影响当前已获取的模拟结果，不会重新计价。</span></div>
           </aside>
           <section class="results-list-wrap">
             <div class="results-toolbar">

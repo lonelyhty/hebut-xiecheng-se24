@@ -11,7 +11,9 @@ export const CABIN_FACTORS = Object.freeze({
 export const CABINS = Object.freeze(Object.keys(CABIN_FACTORS));
 
 const DAY_MS = 86400000;
-const BUCKET_MS = 30 * 60 * 1000;
+const BUCKET_MS = 5 * 60 * 1000;
+const TAX_FEE = 80;
+const SUPPORTED_FLIGHT_CITIES = '上海、北京、广州、深圳、成都、杭州、三亚、西安';
 
 function pad(value) {
   return value < 10 ? `0${value}` : String(value);
@@ -30,12 +32,8 @@ function unit(input) {
   return hashString(input) / 4294967296;
 }
 
-function round10(value) {
-  return Math.round(value / 10) * 10;
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function round(value) {
+  return Math.round(value);
 }
 
 export function chinaDateKey(now) {
@@ -61,15 +59,17 @@ function validateDateWindow(date, now) {
   const today = chinaDateKey(now);
   const offset = Math.round((Date.parse(`${parsed.key}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
   if (offset < 0) throw badRequest('不能搜索过去的日期');
-  if (offset > 365) throw badRequest('仅支持搜索未来 365 天内的航班');
+  if (offset > 180) throw badRequest('仅支持搜索未来 180 天内的航班');
   return { parsed, offset };
 }
 
 export function normalizeCityOrThrow(value, label) {
   const name = TRAVEL_DATA.normalizeCity(value);
   if (!name) throw badRequest(`请填写${label}`);
-  const city = TRAVEL_DATA.findCity(name);
-  if (!city) throw badRequest(`${label}「${name}」不在本地城市列表中`);
+  const city = TRAVEL_DATA.findFlightCity(name);
+  if (!city) {
+    throw badRequest(`${label}「${name}」暂无模拟航班，目前支持：${SUPPORTED_FLIGHT_CITIES}`);
+  }
   return city;
 }
 
@@ -82,7 +82,7 @@ function timeScore(dep) {
   return 0.4;
 }
 
-function decorateRecommendations(flights) {
+export function decorateRecommendations(flights) {
   if (!flights.length) {
     return {
       bestId: null,
@@ -150,6 +150,57 @@ function decorateRecommendations(flights) {
   };
 }
 
+export function computeFlightPrice(flight, cabin, now) {
+  const bucket = Math.floor(now.getTime() / BUCKET_MS);
+  const daysUntilDeparture = flight.date
+    ? (Date.parse(`${flight.date}T00:00:00+08:00`) - now.getTime()) / DAY_MS
+    : 0;
+  const proximityAdjustment = daysUntilDeparture < 3 ? 120 : daysUntilDeparture < 14 ? 40 : 0;
+  const demandAdjustment = ((hashString(`${flight.id || flight.flightNo}|${bucket}`) % 13) - 6) * 5;
+  const cabinFactor = CABIN_FACTORS[cabin] || 1;
+  const baseFare = Number(flight.base != null ? flight.base : flight.price) || 0;
+  const price = round((baseFare + proximityAdjustment + demandAdjustment) * cabinFactor) + TAX_FEE;
+  const originalPrice = round(price * (1.06 + unit(`${flight.flightNo}|${bucket}|original`) * 0.1));
+  return {
+    price,
+    originalPrice,
+    pricing: {
+      baseFare,
+      tax: TAX_FEE,
+      proximityAdjustment,
+      demandAdjustment,
+      cabinFactor,
+      daysUntilDeparture: Number(Math.max(0, daysUntilDeparture).toFixed(2)),
+      bucket,
+      bucketMinutes: 5
+    }
+  };
+}
+
+export function buildPriceCalendar({ from, to, date, cabin = '经济舱', now = new Date() }) {
+  const fromCity = normalizeCityOrThrow(from, '出发城市');
+  const toCity = normalizeCityOrThrow(to, '到达城市');
+  if (!CABINS.includes(cabin)) throw badRequest('不支持的舱位');
+  const center = Date.parse(`${parseDateKey(date).key}T00:00:00+08:00`);
+  const today = chinaDateKey(now);
+  const items = [];
+  for (let offset = -3; offset <= 3; offset += 1) {
+    const key = chinaDateKey(new Date(center + offset * DAY_MS));
+    if (key < today) continue;
+    const dayOffset = Math.round((Date.parse(`${key}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
+    if (dayOffset > 180) continue;
+    const flights = TRAVEL_DATA.getFlights(fromCity.name, toCity.name, key);
+    if (!flights.length) continue;
+    const prices = flights.map((flight) => computeFlightPrice({ ...flight, date: key }, cabin, now).price);
+    items.push({
+      date: key,
+      weekday: parseDateKey(key).weekday,
+      price: Math.min(...prices)
+    });
+  }
+  return items;
+}
+
 export function buildFlightSearch({ from, to, date, passengers = 1, cabin = '经济舱', now = new Date(), filters = {} }) {
   const fromCity = normalizeCityOrThrow(from, '出发城市');
   const toCity = normalizeCityOrThrow(to, '到达城市');
@@ -159,46 +210,26 @@ export function buildFlightSearch({ from, to, date, passengers = 1, cabin = '经
   if (!Number.isInteger(passengerCount) || passengerCount < 1 || passengerCount > 6) {
     throw badRequest('乘客数量应为 1-6 的整数');
   }
-  const { parsed, offset } = validateDateWindow(date, now);
+  const { parsed } = validateDateWindow(date, now);
   const bucket = Math.floor(now.getTime() / BUCKET_MS);
-  const weekend = parsed.weekday === 0 || parsed.weekday === 5 || parsed.weekday === 6;
-  const cabinFactor = CABIN_FACTORS[cabin];
 
-  let flights = TRAVEL_DATA.getFlights(fromCity.name, toCity.name, date).map((flight) => {
-    const demandSeed = unit(`${fromCity.name}|${toCity.name}|${date}|${bucket}|${flight.flightNo}`);
-    const demandFactor = 0.9 + demandSeed * 0.45;
-    const timeFactor = 1 + clamp((14 - offset) * 0.02, 0, 0.3);
-    const weekendFactor = weekend ? 1.08 : 1;
-    const taxes = 50;
-    const price = round10(flight.price * demandFactor * timeFactor * weekendFactor * cabinFactor + taxes);
-    const originalPrice = round10(price * (1.06 + unit(`${flight.flightNo}|${bucket}|original`) * 0.14));
-    const seatsLeft = 2 + (hashString(`${flight.flightNo}|${date}|${bucket}|seats`) % 29);
+  let flights = TRAVEL_DATA.getFlights(fromCity.name, toCity.name, parsed.key).map((flight) => {
+    const computed = computeFlightPrice(flight, cabin, now);
     const reasons = [];
-    if (offset <= 3) reasons.push('临近出发价格上浮');
-    if (weekend) reasons.push('周末出行需求较高');
-    if (demandFactor >= 1.2) reasons.push('该日期需求旺盛');
+    if (computed.pricing.daysUntilDeparture < 3) reasons.push('临近出发价格上浮');
+    if (computed.pricing.proximityAdjustment === 40) reasons.push('出发日期较近');
+    if (computed.pricing.demandAdjustment > 15) reasons.push('该时段需求较高');
     if (!reasons.length) reasons.push('当前价格相对平稳');
     return {
       ...flight,
       date: parsed.key,
       cabin,
       passengers: passengerCount,
-      price,
-      originalPrice,
+      price: computed.price,
+      originalPrice: computed.originalPrice,
       currency: 'CNY',
-      seatsLeft,
-      pricing: {
-        baseFare: flight.price,
-        taxes,
-        demandFactor: Number(demandFactor.toFixed(3)),
-        timeFactor: Number(timeFactor.toFixed(3)),
-        weekendFactor,
-        cabinFactor,
-        daysUntilDeparture: offset,
-        bucket,
-        reasons
-      },
-      quoteExpiresAt: null
+      seatsLeft: flight.seats,
+      pricing: { ...computed.pricing, reasons }
     };
   });
 
@@ -230,8 +261,10 @@ export function buildFlightSearch({ from, to, date, passengers = 1, cabin = '经
     priceContext: {
       bucket,
       validUntil,
-      note: '模拟动态票价每 30 分钟按需求、出发时间和舱位重新计算一次。'
+      note: '模拟动态票价每 5 分钟按需求、出发时间和舱位重新计算一次；报价锁定 10 分钟。'
     },
+    supportedCities: TRAVEL_DATA.flightCities.map((city) => city.name),
+    calendar: buildPriceCalendar({ from: fromCity.name, to: toCity.name, date: parsed.key, cabin, now }),
     results: flights,
     recommendation
   };

@@ -107,6 +107,8 @@ import { api } from './api.js';
     searchSeq: 0,
     recommendation: null,
     priceContext: null,
+    flightCalendar: [],
+    flightFilters: { airline: '', maxPrice: 4000 },
     orderFilter: 'all',
     ordersScope: 'mine',
     ordersLoading: false,
@@ -178,7 +180,7 @@ import { api } from './api.js';
     flight: {
       title: '预订机票',
       eyebrow: '智能推荐 · 动态票价',
-      subtitle: '选择出发与到达城市，获取动态报价与智能航班推荐'
+      subtitle: '国内 8 城 · 56 条航线 · 动态票价与智能推荐'
     },
     train: {
       title: '预订火车票',
@@ -590,7 +592,7 @@ import { api } from './api.js';
       actions.push('<button class="primary-button small" type="button" data-order-pay="' + esc(order.id) + '">去支付</button>');
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
     } else if (status === 'PAID') {
-      if (order.type === 'flight') {
+      if (order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1)) {
         actions.push('<button class="primary-button small" type="button" data-order-checkin="' + esc(order.id) + '">在线值机</button>');
       }
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
@@ -613,8 +615,10 @@ import { api } from './api.js';
         '<div class="order-page-facts">' +
           '<span><b>订单号</b>' + esc(order.id) + '</span>' +
           '<span><b>人数/房间</b>' + esc(order.guestLabel || '') + '</span>' +
+          (Array.isArray(order.passengers) && order.passengers.length ? '<span><b>乘机人</b>' + order.passengers.map(function (passenger) { return esc(passenger.name); }).join('、') + '</span>' : '') +
           (contact ? '<span><b>联系人</b>' + esc(contact) + '</span>' : '') +
           (order.payment ? '<span><b>支付方式</b>' + esc(order.payment.methodLabel || order.payment.method) + '</span>' : '') +
+          (order.ticketing ? '<span><b>票号</b>' + esc(order.ticketing.ticketNumber) + ' · PNR ' + esc(order.ticketing.pnr) + '</span>' : '') +
           (order.checkin ? '<span><b>座位</b>' + esc(order.checkin.seat) + ' · ' + esc(order.checkin.gate) + ' 登机口</span>' : '') +
         '</div>' +
         '<div class="order-page-total"><span>订单合计</span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
@@ -683,6 +687,8 @@ import { api } from './api.js';
           '<div><span>创建时间</span><strong>' + esc(formatDateTime(order.createdAt)) + '</strong></div>' +
           (payment ? '<div><span>支付方式</span><strong>' + esc(payment.methodLabel || payment.method) + '</strong></div>' : '') +
           (payment ? '<div><span>支付流水</span><strong class="mono">' + esc(payment.transactionId) + '</strong></div>' : '') +
+          (Array.isArray(order.passengers) && order.passengers.length ? '<div><span>乘机人</span><strong>' + order.passengers.map(function (passenger) { return esc(passenger.name) + ' · ' + esc(passenger.document.slice(0, 2)) + '****' + esc(passenger.document.slice(-2)); }).join('<br>') + '</strong></div>' : '') +
+          (order.ticketing ? '<div><span>票号 / PNR</span><strong class="mono">' + esc(order.ticketing.ticketNumber) + ' · ' + esc(order.ticketing.pnr) + '</strong></div>' : '') +
           (checkin ? '<div><span>值机座位</span><strong>' + esc(checkin.seat) + ' · ' + esc(checkin.gate) + '</strong></div>' : '') +
           (checkin ? '<div><span>登机牌编号</span><strong class="mono">' + esc(checkin.boardingPassCode) + '</strong></div>' : '') +
         '</div>' +
@@ -775,6 +781,28 @@ import { api } from './api.js';
     $('#resultList').innerHTML = '<div class="orders-loading"><span class="spinner"></span>' + esc(message || '正在加载…') + '</div>';
   }
 
+  function initializeFlightFilters(flights) {
+    const prices = flights.map(function (flight) { return flight.price; }).filter(Number.isFinite);
+    const upper = Math.max(4000, Math.ceil((prices.length ? Math.max.apply(null, prices) : 4000) / 100) * 100);
+    state.flightFilters = { airline: '', maxPrice: upper };
+  }
+
+  function localFlightCalendar(from, to, date) {
+    const items = [];
+    for (let offset = -3; offset <= 3; offset += 1) {
+      const day = addDays(date, offset);
+      if (day < TODAY) continue;
+      const flights = DATA.getFlights(from, to, dateKey(day));
+      if (!flights.length) continue;
+      items.push({
+        date: dateKey(day),
+        weekday: day.getDay(),
+        price: Math.min.apply(null, flights.map(function (flight) { return flight.price; }))
+      });
+    }
+    return items;
+  }
+
   async function performHotelSearch() {
     const raw = $('#hotelCityInput').value.trim();
     if (!raw) {
@@ -840,6 +868,10 @@ import { api } from './api.js';
     const to = DATA.normalizeCity($('#flightToInput').value);
     if (!from || !to) { toast('请填写出发与到达城市'); return; }
     if (from === to) { toast('出发和到达城市不能相同'); return; }
+    if (!DATA.findFlightCity(from) || !DATA.findFlightCity(to)) {
+      toast('目前仅支持上海、北京、广州、深圳、成都、杭州、三亚、西安之间的模拟航班');
+      return;
+    }
     state.flight.from = from;
     state.flight.to = to;
     state.flight.cabin = $('#flightCabin').value;
@@ -858,6 +890,8 @@ import { api } from './api.js';
     state.filters = defaultFilters('flight');
     state.recommendation = null;
     state.priceContext = null;
+    state.flightCalendar = [];
+    state.flightFilters = { airline: '', maxPrice: 4000 };
     state.resultData = [];
     const seq = ++state.searchSeq;
     showResultsLoading(from + ' → ' + to + ' 机票', formatFull(state.flight.date) + ' · ' + state.flight.passengers + '位成人 · ' + state.flight.cabin, '正在计算动态票价与智能推荐…');
@@ -875,10 +909,14 @@ import { api } from './api.js';
         state.resultData = result.results || [];
         state.recommendation = result.recommendation || null;
         state.priceContext = result.priceContext || null;
+        state.flightCalendar = Array.isArray(result.calendar) ? result.calendar : [];
+        initializeFlightFilters(state.resultData);
         if (result.query && result.query.date) state.resultParams.date = parseDateKey(result.query.date);
       } else {
         state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date));
         state.recommendation = null;
+        state.flightCalendar = localFlightCalendar(from, to, state.flight.date);
+        initializeFlightFilters(state.resultData);
       }
     } catch (error) {
       if (seq !== state.searchSeq) return;
@@ -888,6 +926,8 @@ import { api } from './api.js';
       }
       state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date));
       state.recommendation = null;
+      state.flightCalendar = localFlightCalendar(from, to, state.flight.date);
+      initializeFlightFilters(state.resultData);
       toast('动态票价服务不可用，已回退本地航班：' + error.message);
     }
     renderCurrentResults();
@@ -1001,10 +1041,13 @@ import { api } from './api.js';
   /* ------------------------------------------------------------------ */
 
   function prepareResultsLayout(type) {
-    const noFilters = type !== 'hotel';
-    $('#resultsLayout').classList.toggle('no-filters', noFilters);
-    $('#filterPanel').hidden = noFilters;
-    $('#mapTeaser').hidden = noFilters;
+    const showHotelFilters = type === 'hotel';
+    const showFlightFilters = type === 'flight';
+    $('#resultsLayout').classList.toggle('no-filters', !showHotelFilters && !showFlightFilters);
+    $('#filterPanel').hidden = !showHotelFilters;
+    $('#flightFilterPanel').hidden = !showFlightFilters;
+    $('#flightDateStrip').hidden = !showFlightFilters;
+    $('#mapTeaser').hidden = !showHotelFilters;
   }
 
   function setupSort(type) {
@@ -1222,12 +1265,8 @@ import { api } from './api.js';
     '</article>';
   }
 
-  function smartRecommendationHtml() {
-    const recommendation = state.recommendation;
-    if (!recommendation) return '';
-    const best = state.resultData.find(function (flight) { return flight.id === recommendation.bestId; });
+  function smartRecommendationHtml(best, reason) {
     if (!best) return '';
-    const reason = recommendation.summary || best.recommendation.reason || recommendation.policy || '综合价格、耗时与准点率推荐';
     return '<button class="smart-pick" type="button" data-book-flight="' + esc(best.id) + '">' +
       '<span class="smart-pick-mark">' + svgIcon('sparkle') + '</span>' +
       '<span class="smart-pick-copy"><span>智能航班推荐</span><strong>' + esc(best.airline) + ' ' + esc(best.flightNo) + ' · ' + esc(best.dep) + ' - ' + esc(best.arr) + ' · ¥' + money(best.price) + '</strong><small>' + esc(reason) + '</small></span>' +
@@ -1235,29 +1274,82 @@ import { api } from './api.js';
     '</button>';
   }
 
+  function renderFlightDateStrip(params) {
+    const selected = dateKey(params.date);
+    const chips = state.flightCalendar.map(function (day) {
+      const date = parseDateKey(day.date);
+      return '<button type="button" class="date-chip' + (day.date === selected ? ' is-active' : '') + '" data-flight-date="' + esc(day.date) + '">' +
+        '<span>' + formatMD(date) + ' <small>' + weekdayName(date) + '</small></span>' +
+        '<strong>¥' + money(day.price) + '<small>起</small></strong>' +
+      '</button>';
+    }).join('');
+    $('#flightDateStrip').innerHTML = chips
+      ? '<div class="date-strip-head"><span>低价日历</span><small>前后 3 天模拟最低含税价</small></div><div class="date-strip-scroll">' + chips + '</div>'
+      : '';
+  }
+
+  function renderFlightFilterPanel() {
+    const airlines = [];
+    const seen = new Set();
+    state.resultData.forEach(function (flight) {
+      if (!seen.has(flight.code)) {
+        seen.add(flight.code);
+        airlines.push({ code: flight.code, name: flight.airline });
+      }
+    });
+    $('#airlineFilters').innerHTML =
+      '<label class="check-row"><input type="radio" name="flight-airline" value=""' + (!state.flightFilters.airline ? ' checked' : '') + '><span>全部航空公司</span></label>' +
+      airlines.map(function (airline) {
+        return '<label class="check-row"><input type="radio" name="flight-airline" value="' + esc(airline.code) + '"' + (state.flightFilters.airline === airline.code ? ' checked' : '') + '><span>' + esc(airline.name) + '</span></label>';
+      }).join('');
+    const prices = state.resultData.map(function (flight) { return flight.price; });
+    const upper = Math.max(4000, state.flightFilters.maxPrice || 0, Math.ceil((prices.length ? Math.max.apply(null, prices) : 4000) / 100) * 100);
+    const lower = Math.max(300, Math.floor((prices.length ? Math.min.apply(null, prices) : 300) / 50) * 50);
+    const input = $('#flightPriceRange');
+    input.min = String(lower);
+    input.max = String(upper);
+    input.value = String(Math.max(lower, state.flightFilters.maxPrice || upper));
+    $('#flightBudgetLabel').textContent = money(Math.max(lower, state.flightFilters.maxPrice || upper));
+    $('#flightRangeMaxLabel').textContent = '¥' + money(upper);
+  }
+
   function renderFlightResults() {
     const params = state.resultParams;
-    const flights = sortFlights(state.resultData);
     prepareResultsLayout('flight');
     setupSort('flight');
+    renderFlightDateStrip(params);
+    const filtered = sortFlights(state.resultData.filter(function (flight) {
+      return (!state.flightFilters.airline || flight.code === state.flightFilters.airline) &&
+        flight.price <= state.flightFilters.maxPrice;
+    }));
+    renderFlightFilterPanel();
     const validUntil = state.priceContext && state.priceContext.validUntil
       ? new Date(state.priceContext.validUntil).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
       : '';
     $('#resultsTitle').textContent = params.from + ' → ' + params.to + ' 机票';
     $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + params.passengers + '位成人 · ' + params.cabin + ' · ' + (params.trip === 'roundtrip' ? '往返演示（按单程展示）' : '单程') + ' · 动态含税价';
+    const best = filtered.reduce(function (current, flight) {
+      if (!current) return flight;
+      const currentScore = current.recommendation ? current.recommendation.score : 0;
+      const nextScore = flight.recommendation ? flight.recommendation.score : 0;
+      return nextScore > currentScore ? flight : current;
+    }, null);
     $('#summaryCard').innerHTML =
       '<h3>航班摘要</h3>' +
       '<div class="summary-row"><span>航线</span><strong>' + esc(params.from) + ' → ' + esc(params.to) + '</strong></div>' +
       '<div class="summary-row"><span>日期</span><strong>' + formatFull(params.date) + ' · ' + weekdayName(params.date) + '</strong></div>' +
       '<div class="summary-row"><span>舱位</span><strong>' + esc(params.cabin) + '</strong></div>' +
       '<div class="summary-row"><span>乘客</span><strong>' + params.passengers + '位成人</strong></div>' +
-      (state.recommendation ? '<div class="summary-row"><span>智能推荐</span><strong>' + esc(state.recommendation.bestFlightNo || '') + ' · ¥' + money(state.recommendation.bestPrice || '') + '</strong></div>' : '') +
+      (best ? '<div class="summary-row"><span>推荐</span><strong>' + esc(best.airline) + ' ' + esc(best.flightNo) + ' · ¥' + money(best.price) + '</strong></div>' : '') +
       '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>' +
-      '<p class="demo-note">票价由本地后端按需求、出发时间和舱位动态模拟' + (validUntil ? '，当前报价有效至 ' + validUntil : '') + '。不对应真实航班。</p>';
-    $('#resultsCount').innerHTML = '共 <strong>' + flights.length + '</strong> 个航班 · 动态含税价' + (state.priceContext ? ' · 每 30 分钟更新' : '');
-    const body = flights.length
-      ? smartRecommendationHtml() + flights.map(flightResultHtml).join('')
-      : '<div class="empty-state">' + svgIcon('plane') + '<h3>没有可用航班</h3><p>请更换出发/到达城市再试。</p></div>';
+      '<p class="demo-note">动态票价每 5 分钟更新，报价锁定 10 分钟' + (validUntil ? '，当前价格桶有效至 ' + validUntil : '') + '。余票为本地库存，售罄后不再显示。</p>';
+    $('#resultsCount').innerHTML = '共 <strong>' + filtered.length + '</strong> 个可选航班 · 动态含税价 · 余票来自本地库存';
+    const reason = best && best.recommendation && best.recommendation.reason
+      ? best.recommendation.reason
+      : (state.recommendation && state.recommendation.policy) || '综合价格、耗时、出发时段与准点率推荐';
+    const body = filtered.length
+      ? smartRecommendationHtml(best, reason) + filtered.map(flightResultHtml).join('')
+      : '<div class="empty-state">' + svgIcon('plane') + '<h3>没有符合筛选条件的航班</h3><p>尝试放宽航空公司或价格预算；也可以点击上方低价日期重新搜索。</p></div>';
     $('#resultList').innerHTML = body;
   }
 
@@ -1424,6 +1516,7 @@ import { api } from './api.js';
       dateLabel: formatFull(date) + ' ' + flight.dep,
       guestLabel: passengers + '位成人',
       meta: [flight.flightNo, cabin, '直飞'],
+      passengerCount: passengers,
       apiPayload: { type: 'flight', quoteId: flight.quoteId || '' },
       details: {
         flightNo: flight.flightNo,
@@ -1513,6 +1606,16 @@ import { api } from './api.js';
     state.bookingDraft = draft;
     const name = state.user && state.user.name ? state.user.name : '';
     const phone = state.user ? state.user.phone : '';
+    const passengerCount = draft.kind === 'flight' ? Number(draft.passengerCount || 1) : 0;
+    const passengerFields = passengerCount
+      ? '<div class="form-field full passenger-section"><div class="passenger-section-head"><span>乘机人信息 · ' + passengerCount + ' 位</span><button class="secondary-button small" type="button" data-fill-demo-passengers>填入演示信息</button></div>' +
+        Array.from({ length: passengerCount }, function (_, index) {
+          return '<fieldset class="passenger-fieldset"><legend>旅客 ' + (index + 1) + '</legend><div class="passenger-grid">' +
+            '<div class="form-field"><label for="passengerName-' + index + '">姓名</label><input class="form-input" id="passengerName-' + index + '" data-passenger-name="' + index + '" type="text" placeholder="与证件姓名一致" maxlength="40"></div>' +
+            '<div class="form-field"><label for="passengerDocument-' + index + '">演示证件号</label><input class="form-input" id="passengerDocument-' + index + '" data-passenger-document="' + index + '" type="text" placeholder="6–20 位字母或数字" maxlength="20"></div>' +
+          '</div></fieldset>';
+        }).join('') + '</div>'
+      : '';
     const html = '<div class="modal-head"><h2 id="modalTitle">确认订单</h2><p>' + esc(draft.kindLabel) + ' · 本地模拟预订，不会产生真实费用</p></div>' +
       '<div class="modal-body">' +
         '<div class="booking-summary"><strong>' + esc(draft.title) + '</strong><p>' + esc(draft.subtitle) + '</p><div class="booking-lines">' +
@@ -1520,16 +1623,17 @@ import { api } from './api.js';
         '</div></div>' +
         '<form id="bookingForm" novalidate>' +
           '<div class="booking-form">' +
+            passengerFields +
             '<div class="form-field"><label for="bookingName">联系人</label><input class="form-input" id="bookingName" name="name" type="text" placeholder="请输入联系人姓名" value="' + esc(name) + '" autocomplete="name"></div>' +
             '<div class="form-field"><label for="bookingPhone">手机号</label><input class="form-input" id="bookingPhone" name="phone" type="tel" inputmode="numeric" placeholder="用于接收模拟订单通知" value="' + esc(phone) + '" autocomplete="tel"></div>' +
             '<div class="form-field"><label for="bookingId">证件号（选填）</label><input class="form-input" id="bookingId" name="idNumber" type="text" placeholder="演示环境无需填写真实证件"></div>' +
             '<div class="form-field"><label for="bookingArrival">预计到达 / 出行时间</label><input class="form-input" id="bookingArrival" name="arrival" type="text" placeholder="例如：14:00 后"></div>' +
             '<div class="form-field full"><label for="bookingNote">备注</label><textarea class="form-input" id="bookingNote" name="note" rows="3" placeholder="可选：房型偏好、出行需求等"></textarea></div>' +
           '</div>' +
-          '<div class="booking-total"><span>' + esc(draft.totalNote) + '<br><small style="font-size:10px;color:#9aa6b6">全部为本地模拟价格</small></span><strong><em>¥</em>' + money(draft.total) + '</strong></div>' +
+          '<div class="booking-total"><span>' + esc(draft.totalNote) + '<br><small style="font-size:10px;color:#9aa6b6">全部为本地模拟价格，含税费</small></span><strong><em>¥</em>' + money(draft.total) + '</strong></div>' +
           '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>取消</button><button class="primary-button" type="submit">提交订单</button></div>' +
           '<p class="booking-hint">' + (state.apiOnline && draft.apiPayload
-            ? '提交后会在本地后端创建订单（待付款），下一步可完成模拟支付；机票支付后可在线值机。'
+            ? '提交后会在本地后端创建订单（待付款），下一步可完成模拟支付与出票；机票支付后可在线值机。'
             : '后端接口不可用或该业务未接入后端时，会在浏览器本地生成演示订单。') + '</p>' +
         '</form>' +
       '</div>';
@@ -1559,11 +1663,34 @@ import { api } from './api.js';
       arrival: $('#bookingArrival').value.trim(),
       note: $('#bookingNote').value.trim()
     };
+    let passengers = [];
+    if (draft.kind === 'flight') {
+      const count = Number(draft.passengerCount || 1);
+      for (let index = 0; index < count; index += 1) {
+        const nameInput = $('[data-passenger-name="' + index + '"]');
+        const documentInput = $('[data-passenger-document="' + index + '"]');
+        const passengerName = nameInput ? nameInput.value.trim() : '';
+        const document = documentInput ? documentInput.value.trim() : '';
+        if (passengerName.length < 2) {
+          toast('请填写旅客 ' + (index + 1) + ' 的姓名');
+          if (nameInput) nameInput.focus();
+          return;
+        }
+        if (!/^[A-Za-z0-9]{6,20}$/.test(document)) {
+          toast('旅客 ' + (index + 1) + ' 的证件号应为 6–20 位字母或数字');
+          if (documentInput) documentInput.focus();
+          return;
+        }
+        passengers.push({ name: passengerName, document: document });
+      }
+    }
     if (state.apiOnline && draft.apiPayload) {
       const submit = event.target.querySelector('button[type="submit"]');
       if (submit) { submit.disabled = true; submit.textContent = '提交中…'; }
       try {
-        const result = await api.createOrder({ ...draft.apiPayload, contact });
+        const payload = { ...draft.apiPayload, contact };
+        if (draft.kind === 'flight') payload.passengers = passengers;
+        const result = await api.createOrder(payload);
         state.bookingDraft = null;
         upsertOrder(result.order);
         toast('订单已创建，请完成模拟支付');
@@ -1596,6 +1723,7 @@ import { api } from './api.js';
       meta: draft.meta,
       total: draft.total,
       contact: contact,
+      passengers: passengers.length ? passengers : undefined,
       details: draft.details
     };
     state.orders.unshift(order);
@@ -1677,13 +1805,13 @@ import { api } from './api.js';
   }
 
   function openPaymentSuccess(order) {
-    const canCheckin = order.type === 'flight';
+    const canCheckin = order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1);
     openModal('<div class="modal-body"><div class="success-modal">' +
       '<div class="success-icon">' + svgIcon('check') + '</div>' +
       '<h2 id="modalTitle">支付成功</h2>' +
       '<p>' + esc(order.title) + '<br>' + esc(order.dateLabel || '') + ' · ' + esc(order.guestLabel || '') + '</p>' +
       '<div class="order-number-box">本地订单号<strong>' + esc(order.id) + '</strong></div>' +
-      '<p>订单状态已更新为「' + esc(order.statusLabel || '已支付') + '」。' + (canCheckin ? '现在可以在线选座并生成登机牌。' : '可在订单页查看状态历史。') + '</p>' +
+      '<p>订单状态已更新为「' + esc(order.statusLabel || '已支付') + '」。' + (order.ticketing ? '模拟航信已出票，票号 ' + esc(order.ticketing.ticketNumber) + '，PNR ' + esc(order.ticketing.pnr) + '。' : '') + (canCheckin ? '现在可以在线选座并生成登机牌。' : '可在订单页查看状态历史。') + '</p>' +
       '<div class="success-actions">' +
         '<button class="secondary-button" type="button" data-success-orders>查看订单</button>' +
         (canCheckin ? '<button class="primary-button" type="button" data-pay-checkin="' + esc(order.id) + '">去值机</button>' : '<button class="primary-button" type="button" data-success-close>继续浏览</button>') +
@@ -1835,6 +1963,8 @@ import { api } from './api.js';
           '<div><span>登机口 GATE</span><strong>' + esc(pass.gate) + '</strong></div>' +
           '<div><span>登机时间 BOARDING</span><strong>' + esc(pass.boardingTime) + '</strong></div>' +
           '<div><span>座位 SEAT</span><strong class="bp-seat">' + esc(pass.seat) + '</strong></div>' +
+          '<div><span>PNR</span><strong>' + esc(pass.pnr || '—') + '</strong></div>' +
+          '<div><span>票号 TICKET</span><strong>' + esc(pass.ticketNumber || '—') + '</strong></div>' +
         '</div>' +
         '<div class="bp-bottom"><div class="bp-barcode">' + pass.boardingPassCode.split('').slice(0, 24).map(function (char) { return '<i style="height:' + (12 + (char.charCodeAt(0) % 22)) + 'px"></i>'; }).join('') + '</div><div class="bp-note">本地模拟登机牌 · 非真实登机凭证</div></div>' +
       '</div>' +
@@ -2139,29 +2269,33 @@ import { api } from './api.js';
     $('#globalSuggestions').hidden = true;
   }
 
-  function bindCitySuggest(input, panel, onPick) {
+  function bindCitySuggest(input, panel, onPick, cityPool) {
+    const pool = cityPool || DATA.cities;
     function render() {
       const query = input.value.trim().toLowerCase();
-      let list = DATA.cities.filter(function (city) {
+      let list = pool.filter(function (city) {
         return !query || city.name.toLowerCase().indexOf(query) !== -1 || city.en.toLowerCase().indexOf(query) !== -1;
       });
       if (!query) {
-        list = DATA.cities.filter(function (city) { return city.hot; }).slice(0, 10);
+        list = pool.filter(function (city) { return city.hot; }).slice(0, 10);
       } else {
         list = list.slice(0, 12);
       }
       hideFloatingPanels();
       if (!list.length) {
-        panel.innerHTML = '<div class="suggest-label">没有匹配城市</div><div class="suggest-item"><span class="suggest-item-copy"><strong>可直接使用当前输入</strong><span>搜索时会按输入城市处理</span></span></div>';
+        panel.innerHTML = '<div class="suggest-label">没有匹配城市</div><div class="suggest-item"><span class="suggest-item-copy"><strong>暂无可选航班城市</strong><span>当前支持：上海、北京、广州、深圳、成都、杭州、三亚、西安</span></span></div>';
       } else {
-        panel.innerHTML = '<div class="suggest-label">' + (query ? '匹配城市' : '热门城市') + '</div>' + list.map(function (city) {
+        panel.innerHTML = '<div class="suggest-label">' + (query ? '匹配航班城市' : '热门航班城市') + '</div>' + list.map(function (city) {
+          const meta = city.code
+            ? city.code + ' · ' + city.airport + ' ' + city.terminal
+            : esc(city.en) + ' · ' + (city.region === 'international' ? '海外' : '国内');
           return '<button type="button" class="suggest-item" data-city-pick="' + esc(city.name) + '">' +
-            '<span class="suggest-item-icon">' + svgIcon('location') + '</span>' +
-            '<span class="suggest-item-copy"><strong>' + esc(city.name) + '</strong><span>' + esc(city.en) + ' · ' + (city.region === 'international' ? '海外' : '国内') + '</span></span>' +
+            '<span class="suggest-item-icon">' + svgIcon('plane') + '</span>' +
+            '<span class="suggest-item-copy"><strong>' + esc(city.name) + '</strong><span>' + esc(meta) + '</span></span>' +
           '</button>';
         }).join('');
       }
-      positionFloating(panel, input.closest('.field') || input, 320);
+      positionFloating(panel, input.closest('.field') || input, 340);
     }
     input.addEventListener('focus', render);
     input.addEventListener('input', render);
@@ -2643,11 +2777,11 @@ import { api } from './api.js';
     bindCitySuggest($('#flightFromInput'), $('#flightFromSuggest'), function (city) {
       state.flight.from = city;
       $('#flightFromInput').value = city;
-    });
+    }, DATA.flightCities);
     bindCitySuggest($('#flightToInput'), $('#flightToSuggest'), function (city) {
       state.flight.to = city;
       $('#flightToInput').value = city;
-    });
+    }, DATA.flightCities);
     bindCitySuggest($('#trainFromInput'), $('#trainFromSuggest'), function (city) {
       state.train.from = city;
       $('#trainFromInput').value = city;
@@ -2930,6 +3064,29 @@ import { api } from './api.js';
       state.filters.sort = event.target.value;
       renderCurrentResults();
     });
+    $('#flightDateStrip').addEventListener('click', function (event) {
+      const chip = event.target.closest('[data-flight-date]');
+      if (!chip) return;
+      state.flight.date = parseDateKey(chip.getAttribute('data-flight-date'));
+      updateAllDateUi();
+      performFlightSearch();
+    });
+    $('#airlineFilters').addEventListener('change', function (event) {
+      if (event.target.name !== 'flight-airline') return;
+      state.flightFilters.airline = event.target.value;
+      renderFlightResults();
+    });
+    $('#flightPriceRange').addEventListener('input', function (event) {
+      $('#flightBudgetLabel').textContent = money(event.target.value);
+    });
+    $('#flightPriceRange').addEventListener('change', function (event) {
+      state.flightFilters.maxPrice = Number(event.target.value);
+      renderFlightResults();
+    });
+    $('#resetFlightFilters').addEventListener('click', function () {
+      initializeFlightFilters(state.resultData);
+      renderFlightResults();
+    });
     $('#openMapBtn').addEventListener('click', function () {
       openMapModal(state.resultParams ? state.resultParams.city : state.search.city);
     });
@@ -3088,6 +3245,22 @@ import { api } from './api.js';
     if (modalHotel) { openHotelDetail(DATA.getHotelById(modalHotel.getAttribute('data-modal-hotel'))); return; }
     if (event.target.closest('[data-book-ticket]')) {
       if (state.ticketContext) openTicketBooking(state.ticketContext);
+      return;
+    }
+    if (event.target.closest('[data-fill-demo-passengers]')) {
+      const count = state.bookingDraft && state.bookingDraft.kind === 'flight'
+        ? Number(state.bookingDraft.passengerCount || 1)
+        : 0;
+      for (let index = 0; index < count; index += 1) {
+        const nameInput = $('[data-passenger-name="' + index + '"]');
+        const documentInput = $('[data-passenger-document="' + index + '"]');
+        if (nameInput && !nameInput.value.trim()) nameInput.value = '演示旅客' + (index + 1);
+        if (documentInput && !documentInput.value.trim()) documentInput.value = 'DEMO' + String(index + 1).padStart(6, '0');
+      }
+      const contactName = $('#bookingName');
+      const contactPhone = $('#bookingPhone');
+      if (contactName && !contactName.value.trim()) contactName.value = '演示联系人';
+      if (contactPhone && !contactPhone.value.trim()) contactPhone.value = '13800138000';
       return;
     }
   }

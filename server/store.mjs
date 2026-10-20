@@ -6,8 +6,11 @@ const EMPTY_DATA = {
   version: 1,
   users: [],
   sessions: [],
-  orders: []
+  orders: [],
+  inventory: {}
 };
+
+const ACTIVE_FLIGHT_STATUSES = new Set(['PENDING_PAYMENT', 'PAID', 'CHECKED_IN']);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -28,7 +31,8 @@ export class Store {
         version: 1,
         users: Array.isArray(parsed.users) ? parsed.users : [],
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
-        orders: Array.isArray(parsed.orders) ? parsed.orders : []
+        orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+        inventory: parsed.inventory && typeof parsed.inventory === 'object' ? parsed.inventory : {}
       };
     } catch (error) {
       if (error.code !== 'ENOENT') {
@@ -111,6 +115,42 @@ export class Store {
     this.data.orders.push(order);
     await this.save();
     return order;
+  }
+
+  ensureFlightInventory(flightId, totalSeats) {
+    if (!this.data.inventory) this.data.inventory = {};
+    if (!this.data.inventory[flightId]) {
+      const reserved = this.data.orders
+        .filter((order) => order.type === 'flight' && ACTIVE_FLIGHT_STATUSES.has(order.status))
+        .filter((order) => order.details && order.details.flightId === flightId)
+        .reduce((sum, order) => {
+          const details = order.details || {};
+          return sum + Number(details.passengers || (Array.isArray(order.passengers) ? order.passengers.length : 1));
+        }, 0);
+      this.data.inventory[flightId] = {
+        totalSeats,
+        reservedSeats: Math.min(totalSeats, Math.max(0, reserved))
+      };
+    }
+    return this.data.inventory[flightId];
+  }
+
+  getAvailableFlightSeats(flightId, totalSeats) {
+    const inventory = this.ensureFlightInventory(flightId, totalSeats);
+    return Math.max(0, inventory.totalSeats - inventory.reservedSeats);
+  }
+
+  reserveFlightSeats(flightId, totalSeats, count) {
+    const inventory = this.ensureFlightInventory(flightId, totalSeats);
+    if (inventory.totalSeats - inventory.reservedSeats < count) return false;
+    inventory.reservedSeats += count;
+    return true;
+  }
+
+  releaseFlightSeats(flightId, count) {
+    if (!this.data.inventory || !this.data.inventory[flightId]) return;
+    const inventory = this.data.inventory[flightId];
+    inventory.reservedSeats = Math.max(0, inventory.reservedSeats - count);
   }
 
   findOrderById(id) {

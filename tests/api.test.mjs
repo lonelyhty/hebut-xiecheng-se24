@@ -65,14 +65,15 @@ test('full flight lifecycle: search, quote, order, pay, seat, check-in, boarding
     from: '上海', to: '北京', date: CHECKIN, passengers: 1, cabin: '经济舱'
   })}`);
   assert.equal(search.status, 200);
-  assert.equal(search.payload.results.length, 6);
+  assert.equal(search.status, 200);
+  assert.equal(search.payload.results.length, 5);
   const flight = search.payload.results[0];
   const quoteId = flight.quoteId;
   assert.ok(quoteId);
   assert.ok(search.payload.recommendation.bestId);
 
   const unauthorized = await call('POST', '/api/orders', {
-    body: { type: 'flight', quoteId, contact: { name: '测试旅客', phone: '13800138000' } }
+    body: { type: 'flight', quoteId, contact: { name: '测试旅客', phone: '13800138000' }, passengers: [{ name: '测试旅客', document: 'DEMO000001' }] }
   });
   assert.equal(unauthorized.status, 401);
 
@@ -85,7 +86,7 @@ test('full flight lifecycle: search, quote, order, pay, seat, check-in, boarding
 
   const created = await call('POST', '/api/orders', {
     token,
-    body: { type: 'flight', quoteId, contact: { name: '测试旅客', phone: '13800138000' } }
+    body: { type: 'flight', quoteId, contact: { name: '测试旅客', phone: '13800138000' }, passengers: [{ name: '测试旅客', document: 'DEMO000001' }] }
   });
   assert.equal(created.status, 201);
   const order = created.payload.order;
@@ -96,7 +97,7 @@ test('full flight lifecycle: search, quote, order, pay, seat, check-in, boarding
 
   const reuseQuote = await call('POST', '/api/orders', {
     token,
-    body: { type: 'flight', quoteId, contact: { name: '测试旅客', phone: '13800138000' } }
+    body: { type: 'flight', quoteId, contact: { name: '测试旅客', phone: '13800138000' }, passengers: [{ name: '测试旅客', document: 'DEMO000001' }] }
   });
   assert.equal(reuseQuote.status, 409);
   assert.equal(reuseQuote.payload.error.code, 'QUOTE_USED');
@@ -105,6 +106,8 @@ test('full flight lifecycle: search, quote, order, pay, seat, check-in, boarding
   assert.equal(pay.status, 200);
   assert.equal(pay.payload.order.status, 'PAID');
   assert.equal(pay.payload.order.payment.provider, 'MockPay Sandbox');
+  assert.ok(pay.payload.order.ticketing.ticketNumber.startsWith('781-'));
+  assert.ok(pay.payload.order.ticketing.pnr);
 
   const payAgain = await call('POST', `/api/orders/${order.id}/pay`, { token, body: { method: 'alipay' } });
   assert.equal(payAgain.status, 409);
@@ -112,7 +115,7 @@ test('full flight lifecycle: search, quote, order, pay, seat, check-in, boarding
 
   const seats = await call('GET', `/api/orders/${order.id}/seats`, { token });
   assert.equal(seats.status, 200);
-  assert.equal(seats.payload.seatMap.seats.length, 48);
+  assert.equal(seats.payload.seatMap.seats.length, 180);
   const available = seats.payload.seatMap.seats.find((seat) => seat.status === 'available');
   assert.ok(available);
 
@@ -149,10 +152,16 @@ test('cancellation, hotel and ticket orders, roles and access control', async ()
   const search = await call('GET', `/api/flights/search?${query({
     from: '上海', to: '广州', date: CHECKIN, passengers: 2, cabin: '经济舱'
   })}`);
-  const flight = search.payload.results[1];
+  assert.equal(search.status, 200);
+  const flight = search.payload.results[0];
   const created = await call('POST', '/api/orders', {
     token: travelerToken,
-    body: { type: 'flight', quoteId: flight.quoteId, contact: { name: '测试旅客', phone: '13800138000' } }
+    body: {
+      type: 'flight',
+      quoteId: flight.quoteId,
+      contact: { name: '测试旅客', phone: '13800138000' },
+      passengers: [{ name: '测试旅客甲', document: 'DEMO000001' }, { name: '测试旅客乙', document: 'DEMO000002' }]
+    }
   });
   const flightOrder = created.payload.order;
   assert.equal(flightOrder.total, flight.price * 2);
@@ -238,7 +247,7 @@ test('cancellation, hotel and ticket orders, roles and access control', async ()
   const expiringFlight = expiringSearch.payload.results[2];
   const expiringOrder = await call('POST', '/api/orders', {
     token: travelerToken,
-    body: { type: 'flight', quoteId: expiringFlight.quoteId, contact: { name: '测试旅客', phone: '13800138000' } }
+    body: { type: 'flight', quoteId: expiringFlight.quoteId, contact: { name: '测试旅客', phone: '13800138000' }, passengers: [{ name: '测试旅客', document: 'DEMO000001' }] }
   });
   assert.equal(expiringOrder.status, 201);
   const expiringId = expiringOrder.payload.order.id;

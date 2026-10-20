@@ -26,12 +26,13 @@ test('flight search returns priced flights with recommendation metadata', () => 
   assert.equal(result.query.from, '上海');
   assert.equal(result.query.to, '北京');
   assert.equal(result.query.date, TOMORROW);
-  assert.equal(result.results.length, 6);
+  assert.equal(result.results.length, 5);
+  assert.equal(result.calendar.length >= 1, true);
   for (const flight of result.results) {
     assert.ok(flight.price > 0);
     assert.ok(flight.originalPrice >= flight.price);
-    assert.ok(flight.quoteExpiresAt === null);
-    assert.ok(flight.pricing.demandFactor >= 0.9);
+    assert.equal(flight.pricing.tax, 80);
+    assert.ok(flight.pricing.demandAdjustment >= -30 && flight.pricing.demandAdjustment <= 30);
     assert.ok(flight.recommendation.score >= 0 && flight.recommendation.score <= 100);
     assert.equal(flight.date, TOMORROW);
   }
@@ -45,12 +46,12 @@ test('flight search returns priced flights with recommendation metadata', () => 
   assert.ok(best.recommendation.labels.includes('综合推荐'));
 });
 
-test('dynamic pricing is deterministic inside a 30 minute bucket and reacts to time', () => {
+test('dynamic pricing is deterministic inside a 5 minute bucket and reacts to time', () => {
   const first = search();
   const second = search();
   assert.deepEqual(first.results.map((flight) => flight.price), second.results.map((flight) => flight.price));
 
-  const later = search({ now: new Date(NOW.getTime() + 31 * 60 * 1000) });
+  const later = search({ now: new Date(NOW.getTime() + 6 * 60 * 1000) });
   const changed = first.results.some((flight, index) => flight.price !== later.results[index].price);
   assert.equal(changed, true);
 });
@@ -92,6 +93,7 @@ test('check-in selects available seats and rejects taken seats', () => {
     type: 'flight',
     status: ORDER_STATUS.PAID,
     contact: { name: '橙程旅客' },
+    passengers: [{ name: '橙程旅客', document: 'DEMO000001' }],
     details: {
       flightNo: 'YH1001',
       airline: '远航航空',
@@ -103,7 +105,7 @@ test('check-in selects available seats and rejects taken seats', () => {
     }
   };
   const seatMap = buildSeatMap(store, order);
-  assert.equal(seatMap.seats.length, 48);
+  assert.equal(seatMap.seats.length, 180);
   const available = seatMap.seats.find((seat) => seat.status === 'available');
   assert.ok(available);
   const checkin = prepareCheckIn(store, order, available.id, NOW);
@@ -135,13 +137,32 @@ test('check-in requires a paid order and a future departure', () => {
     id: 'OC-3',
     type: 'flight',
     status: ORDER_STATUS.PENDING_PAYMENT,
+    passengers: [{ name: '橙程旅客', document: 'DEMO000001' }],
     details: { flightNo: 'YH1', date: TOMORROW, dep: '18:00' }
   };
   assert.throws(() => prepareCheckIn(store, order, '1A', NOW), (error) => error.code === 'INVALID_ORDER_STATE');
   order.status = ORDER_STATUS.PAID;
   order.details.dep = '00:10';
   const nextDayMorning = new Date('2026-10-21T01:00:00.000Z');
-  assert.throws(() => prepareCheckIn(store, order, '1A', nextDayMorning), (error) => error.code === 'CHECKIN_CLOSED');
+  assert.throws(() => prepareCheckIn(store, order, '1A', nextDayMorning), (error) => error.code === 'CHECKIN_WINDOW');
+
+  const farOrder = {
+    ...order,
+    status: ORDER_STATUS.PAID,
+    details: { ...order.details, date: '2026-10-25', dep: '18:00' }
+  };
+  assert.throws(() => prepareCheckIn(store, farOrder, '1A', NOW), (error) => error.code === 'CHECKIN_WINDOW');
+
+  const groupOrder = {
+    ...order,
+    status: ORDER_STATUS.PAID,
+    details: { ...order.details, date: TOMORROW, dep: '18:00' },
+    passengers: [
+      { name: '旅客甲', document: 'DEMO000001' },
+      { name: '旅客乙', document: 'DEMO000002' }
+    ]
+  };
+  assert.throws(() => prepareCheckIn(store, groupOrder, '1A', NOW), (error) => error.code === 'SINGLE_CHECKIN_ONLY');
 });
 
 test('itinerary planner returns day-by-day plans and costs', () => {
