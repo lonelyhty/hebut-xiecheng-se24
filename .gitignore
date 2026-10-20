@@ -1,0 +1,7 @@
+data/
+captures/
+scenarios/
+node_modules/
+*.log
+.DS_Store
+Thumbs.db

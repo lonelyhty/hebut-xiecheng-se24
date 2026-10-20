@@ -1,0 +1,15 @@
+{
+  "name": "octrip-air-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "橙程航空旅行一站式服务平台：本地可运行的机票、酒店、门票演示项目，包含动态票价、智能推荐、订单、支付、值机与行程规划。",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test"
+  }
+}

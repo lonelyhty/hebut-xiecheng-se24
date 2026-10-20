@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="橙程航空旅行一站式服务平台：本地可运行的机票、酒店、门票预订演示，包含动态票价、智能推荐、订单支付、在线值机与行程规划。">
+  <title>橙程旅行 · 航空旅行一站式服务平台</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="platform.css">
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-bed" viewBox="0 0 24 24"><path d="M3 19v-9M21 19v-6a3 3 0 0 0-3-3H9v9M3 14h18M6 10V7h5v3"/><path d="M6 19v2M18 19v2"/></symbol>
+    <symbol id="i-plane" viewBox="0 0 24 24"><path d="M10.5 13.5 4 11l2-2 5.5 1L16 5.5c.8-.8 2.1-.8 2.5-.4s.4 1.7-.4 2.5L13.5 12l1 5.5-2 2-2.5-6.5-2 2 .5 3-1.5 1.5-1.5-4-4-1.5L3 12l3 .5 2-2"/></symbol>
+    <symbol id="i-train" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="4"/><path d="M5 10h14M9 17l-2 3M15 17l2 3M9 7h6"/><circle cx="9" cy="13.5" r="1"/><circle cx="15" cy="13.5" r="1"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v6a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2V9Z"/><path d="M14 7v2M14 11v2M14 15v2"/></symbol>
+    <symbol id="i-car" viewBox="0 0 24 24"><path d="m5 11 1.6-4.3A2 2 0 0 1 8.5 5h7a2 2 0 0 1 1.9 1.7L19 11M4 11h16a1 1 0 0 1 1 1v5H3v-5a1 1 0 0 1 1-1Z"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.6 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.6-3.8-9S9.5 5.5 12 3Z"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><path d="M4 10h16v10H4V10ZM3 7h18v3H3V7Z"/><path d="M12 7v13M12 7c-3.5 0-5-1.2-5-2.5S8.5 2 12 7ZM12 7c3.5 0 5-1.2 5-2.5S15.5 2 12 7Z"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 9h18M16 13h2"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18M10 13v2h4v-2"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></symbol>
+    <symbol id="i-location" viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2.8 2.7 5.5 6 .9-4.3 4.2 1 6-5.4-2.8-5.4 2.8 1-6L3.3 9.2l6-.9L12 2.8Z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 7.9 7.5 9.5 4.3-1.6 7.5-5 7.5-9.5V6L12 3Z"/><path d="m8.8 11.8 2.2 2.2 4.4-4.4"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a13 13 0 0 1 18 0M6 12.5a8.5 8.5 0 0 1 12 0M9.2 16a4 4 0 0 1 5.6 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-parking" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></symbol>
+    <symbol id="i-pool" viewBox="0 0 24 24"><path d="M7 4v12M17 4v12M7 9h10"/><path d="M3 19c1.5-2 3-2 4.5 0s3 2 4.5 0 3-2 4.5 0 3 2 4.5 0"/></symbol>
+    <symbol id="i-gym" viewBox="0 0 24 24"><path d="m4 9 2-2M20 15l-2 2M6 7l11 11M3 12l3-3 9 9-3 3-9-9ZM15 6l3-3 6 6-3 3-6-6Z"/></symbol>
+    <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M4 8h12v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8ZM16 10h2a3 3 0 0 1 0 6h-2M7 3v2M11 3v2"/></symbol>
+    <symbol id="i-service" viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="3" y="13" width="4" height="6" rx="2"/><rect x="17" y="13" width="4" height="6" rx="2"/><path d="M19 19a3 3 0 0 1-3 3h-3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="4"/><path d="M8 6l1.5-2h5L16 6"/></symbol>
+    <symbol id="i-boat" viewBox="0 0 24 24"><path d="M4 16h16l-2 4H6l-2-4ZM6 16V9l6-4v11M12 9h6l2 7"/><path d="M3 21c1.5-1.4 3-1.4 4.5 0s3 1.4 4.5 0 3-1.4 4.5 0 3 1.4 4.5 0" opacity=".5"/></symbol>
+    <symbol id="i-peak" viewBox="0 0 24 24"><path d="m3 19 5.5-9 3.5 5 2.5-3L21 19H3Z"/><circle cx="17" cy="6" r="2"/></symbol>
+    <symbol id="i-temple" viewBox="0 0 24 24"><path d="m3 9 9-6 9 6H3ZM5 9h14v9H5V9ZM3 21h18M9 18v-5h6v5"/></symbol>
+    <symbol id="i-food" viewBox="0 0 24 24"><path d="M5 3v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M7 12v9M16 3c-1.5 2-2 4-2 6s.5 3 2 3v9M17 3v9"/></symbol>
+    <symbol id="i-park" viewBox="0 0 24 24"><circle cx="12" cy="10" r="7"/><path d="M12 3v14M5 10h14M7 5l10 10M17 5 7 15M12 17v4M9 21h6"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 14h10l1-14M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h4a4 4 0 0 0 4-4V9M16 5h-4a4 4 0 0 0-4 4v2"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-7.2 7-13a7 7 0 1 0-14 0c0 5.8 7 13 7 13Z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+  </svg>
+
+  <aside class="side-nav" id="sideNav" aria-label="全站服务导航">
+    <div class="side-nav-head">
+      <button class="nav-collapse" id="navCollapse" aria-label="收起导航" title="收起导航">
+        <svg><use href="#i-menu"></use></svg>
+      </button>
+    </div>
+    <nav class="side-links">
+      <button class="side-item is-active" type="button" data-service="flight">
+        <span class="side-icon"><svg><use href="#i-plane"></use></svg></span><span class="side-label">机票</span>
+      </button>
+      <button class="side-item" type="button" data-service="hotel">
+        <span class="side-icon"><svg><use href="#i-bed"></use></svg></span><span class="side-label">酒店</span>
+      </button>
+      <button class="side-item" type="button" data-service="train">
+        <span class="side-icon"><svg><use href="#i-train"></use></svg></span><span class="side-label">火车票</span>
+      </button>
+      <button class="side-item" type="button" data-service="ticket">
+        <span class="side-icon"><svg><use href="#i-ticket"></use></svg></span><span class="side-label">门票·活动</span>
+      </button>
+      <button class="side-item" type="button" data-service="car">
+        <span class="side-icon"><svg><use href="#i-car"></use></svg></span><span class="side-label">汽车·船票</span>
+      </button>
+      <button class="side-item" type="button" data-service="taxi">
+        <span class="side-icon"><svg><use href="#i-route"></use></svg></span><span class="side-label">用车</span>
+      </button>
+      <div class="side-sep"></div>
+      <button class="side-item" type="button" data-action="ai">
+        <span class="side-icon"><svg><use href="#i-sparkle"></use></svg></span><span class="side-label">AI行程助手</span><em class="side-new">NEW</em>
+      </button>
+      <button class="side-item" type="button" data-scroll="recommend">
+        <span class="side-icon"><svg><use href="#i-compass"></use></svg></span><span class="side-label">旅游</span>
+      </button>
+      <button class="side-item" type="button" data-scroll="recommend">
+        <span class="side-icon"><svg><use href="#i-camera"></use></svg></span><span class="side-label">攻略·景点</span>
+      </button>
+      <button class="side-item" type="button" data-action="map">
+        <span class="side-icon"><svg><use href="#i-map"></use></svg></span><span class="side-label">旅游地图</span>
+      </button>
+      <div class="side-sep"></div>
+      <button class="side-item" type="button" data-action="placeholder">
+        <span class="side-icon"><svg><use href="#i-globe"></use></svg></span><span class="side-label">全球购</span>
+      </button>
+      <button class="side-item" type="button" data-action="placeholder">
+        <span class="side-icon"><svg><use href="#i-gift"></use></svg></span><span class="side-label">礼品卡</span>
+      </button>
+      <button class="side-item" type="button" data-action="placeholder">
+        <span class="side-icon"><svg><use href="#i-wallet"></use></svg></span><span class="side-label">橙程金融</span>
+      </button>
+      <div class="side-sep"></div>
+      <button class="side-item" type="button" data-action="business">
+        <span class="side-icon"><svg><use href="#i-briefcase"></use></svg></span><span class="side-label">企业商旅</span>
+      </button>
+      <button class="side-item" type="button" data-action="placeholder">
+        <span class="side-icon"><svg><use href="#i-user"></use></svg></span><span class="side-label">老友会</span>
+      </button>
+      <button class="side-item" type="button" data-scroll="footer">
+        <span class="side-icon"><svg><use href="#i-info"></use></svg></span><span class="side-label">关于橙程</span>
+      </button>
+    </nav>
+  </aside>
+  <div class="nav-scrim" id="navScrim" hidden></div>
+
+  <div class="page">
+    <header class="site-header">
+      <div class="header-inner">
+        <button class="mobile-menu" id="mobileMenu" aria-label="打开导航">
+          <svg><use href="#i-menu"></use></svg>
+        </button>
+        <a class="brand" href="#" id="brandHome" aria-label="橙程旅行首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="21" fill="#ff8a00"></circle>
+              <path d="M7 28c6.2-6.6 12.7-9.7 20.6-10.2 3.9-.2 6.7.5 9.4 2.5-6.6 8-15.3 11.2-25 10.4L7 28Z" fill="#fff" opacity=".95"></path>
+              <path d="M9 24.5c4.8-4 10.1-6.1 16.1-6.6 2.5-.2 4.5.1 6.6 1.2" fill="none" stroke="#0086f6" stroke-width="2.4" stroke-linecap="round"></path>
+              <circle cx="30" cy="16" r="3" fill="#fff"></circle>
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-name">橙程旅行</span>
+            <span class="brand-badge">航空平台</span>
+          </span>
+        </a>
+        <div class="global-search" id="globalSearchWrap">
+          <svg class="global-search-icon"><use href="#i-search"></use></svg>
+          <input id="globalSearchInput" type="text" placeholder="搜索城市、酒店或目的地" autocomplete="off" aria-label="全站搜索">
+          <button class="global-search-go" id="globalSearchGo" type="button" aria-label="搜索">
+            <svg><use href="#i-search"></use></svg>
+          </button>
+          <div class="suggest-panel" id="globalSuggestions" hidden></div>
+        </div>
+        <nav class="header-actions" aria-label="账户与帮助">
+          <span class="api-status" id="apiStatus" title="本地后端 API 状态"><i></i><span>检测中</span></span>
+          <button class="text-btn" id="loginTrigger" type="button">登录</button>
+          <button class="text-btn" id="registerTrigger" type="button">注册</button>
+          <div class="dropdown" id="ordersDropdown">
+            <button class="text-btn dropdown-trigger" id="ordersTrigger" type="button">我的订单 <svg class="mini-chevron"><use href="#i-chevron-down"></use></svg></button>
+            <div class="dropdown-panel orders-panel" id="ordersPanel" hidden>
+              <div class="orders-panel-head"><strong>我的订单</strong><span>保存在本地</span></div>
+              <div id="ordersPreview" class="orders-preview"></div>
+              <button class="orders-all" id="ordersAll" type="button">查看全部订单 <svg><use href="#i-arrow-right"></use></svg></button>
+            </div>
+          </div>
+          <button class="text-btn" id="supportTrigger" type="button">联系客服</button>
+          <span class="header-sep" aria-hidden="true"></span>
+          <button class="icon-btn" id="appTrigger" type="button" aria-label="手机版" title="手机版"><svg><use href="#i-phone"></use></svg></button>
+          <button class="icon-btn" id="favTrigger" type="button" aria-label="我的收藏" title="我的收藏"><svg><use href="#i-heart"></use></svg></button>
+          <button class="icon-btn" id="userTrigger" type="button" aria-label="账户" title="账户"><svg><use href="#i-user"></use></svg></button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-inner">
+      <section class="home-view" id="homeView">
+        <div class="content-grid">
+          <div class="main-column">
+            <section class="search-card" id="searchCard">
+              <svg class="search-art" viewBox="0 0 360 150" aria-hidden="true">
+                <g fill="none" stroke="rgba(255,255,255,.32)" stroke-width="2" stroke-linecap="round">
+                  <path d="M84 150V58h54v92M104 58V36h14v22M146 150V80h38v70M196 150V50h62v100M212 78h30M212 98h30M212 118h30M270 150V86h46v64M284 106h18M18 150v-46h44v46M32 122h16"/>
+                  <path d="M24 34c8-9 19-9 27 0M50 26c7-7 15-7 21 0M270 30c6-7 16-7 22 0" opacity=".7"/>
+                  <path d="m310 50 12-8 12 8-12 8-12-8ZM322 42v-8" opacity=".8"/>
+                </g>
+              </svg>
+              <div class="search-head">
+                <div class="search-heading">
+                  <span class="search-eyebrow" id="searchEyebrow">智能推荐 · 动态票价</span>
+                  <h1 id="searchTitle">预订机票</h1>
+                  <p id="searchSubtitle">选择出发与到达城市，获取动态报价与智能航班推荐</p>
+                </div>
+                <div class="search-trust">
+                  <span class="trust-item"><svg><use href="#i-shield"></use></svg>安心订</span>
+                  <span class="trust-dot"></span>
+                  <span class="trust-item"><svg><use href="#i-check"></use></svg>放心住</span>
+                </div>
+              </div>
+
+              <div class="search-forms">
+                <form class="search-form" id="hotelForm" novalidate hidden>
+                  <div class="field-row field-row-main">
+                    <div class="field field-city" id="hotelCityField">
+                      <label for="hotelCityInput">目的地/酒店名称</label>
+                      <div class="field-input-line">
+                        <input id="hotelCityInput" type="text" value="上海" autocomplete="off" spellcheck="false">
+                        <svg class="field-icon"><use href="#i-location"></use></svg>
+                      </div>
+                      <span class="field-hint">热门：上海 · 北京 · 三亚</span>
+                      <div class="field-suggest" id="hotelCitySuggest" hidden></div>
+                    </div>
+                    <div class="field field-dates" id="hotelDateField" role="button" tabindex="0" aria-label="选择入住和退房日期">
+                      <div class="date-pane">
+                        <label>入住</label>
+                        <strong id="checkinLabel">10月20日</strong>
+                        <span id="checkinSub">今天</span>
+                      </div>
+                      <div class="night-badge" id="nightBadge">1晚</div>
+                      <div class="date-pane">
+                        <label>退房</label>
+                        <strong id="checkoutLabel">10月21日</strong>
+                        <span id="checkoutSub">明天</span>
+                      </div>
+                      <svg class="date-calendar-icon"><use href="#i-calendar"></use></svg>
+                    </div>
+                  </div>
+                  <div class="field-row field-row-sub">
+                    <div class="field-cluster">
+                      <div class="field field-compact" id="guestField">
+                        <label>房间及住客</label>
+                        <button class="field-button" id="guestTrigger" type="button">
+                          <span id="guestSummary">1间, 1位</span>
+                          <svg class="mini-chevron"><use href="#i-chevron-down"></use></svg>
+                        </button>
+                        <div class="popover guest-popover" id="guestPopover" hidden>
+                          <div class="counter-row">
+                            <div><strong>房间</strong><span>最多可选 5 间</span></div>
+                            <div class="counter">
+                              <button type="button" data-counter="rooms" data-delta="-1" aria-label="减少房间">−</button>
+                              <span id="roomsCount">1</span>
+                              <button type="button" data-counter="rooms" data-delta="1" aria-label="增加房间">+</button>
+                            </div>
+                          </div>
+                          <div class="counter-row">
+                            <div><strong>成人</strong><span>18 岁及以上</span></div>
+                            <div class="counter">
+                              <button type="button" data-counter="adults" data-delta="-1" aria-label="减少成人">−</button>
+                              <span id="adultsCount">1</span>
+                              <button type="button" data-counter="adults" data-delta="1" aria-label="增加成人">+</button>
+                            </div>
+                          </div>
+                          <div class="counter-row">
+                            <div><strong>儿童</strong><span>0–17 岁</span></div>
+                            <div class="counter">
+                              <button type="button" data-counter="children" data-delta="-1" aria-label="减少儿童">−</button>
+                              <span id="childrenCount">0</span>
+                              <button type="button" data-counter="children" data-delta="1" aria-label="增加儿童">+</button>
+                            </div>
+                          </div>
+                          <button class="popover-done" id="guestDone" type="button">确定</button>
+                        </div>
+                      </div>
+                      <div class="field field-compact" id="levelField">
+                        <label>酒店级别</label>
+                        <button class="field-button" id="levelTrigger" type="button">
+                          <span id="levelSummary">不限</span>
+                          <svg class="mini-chevron"><use href="#i-chevron-down"></use></svg>
+                        </button>
+                        <div class="popover level-popover" id="levelPopover" hidden>
+                          <button type="button" data-level="不限">不限</button>
+                          <button type="button" data-level="3">舒适型 · 3星</button>
+                          <button type="button" data-level="4">高档型 · 4星</button>
+                          <button type="button" data-level="5">豪华型 · 5星</button>
+                        </div>
+                      </div>
+                      <div class="field field-compact field-keyword">
+                        <label for="hotelKeyword">关键词（选填）</label>
+                        <input id="hotelKeyword" type="text" placeholder="机场/火车站/酒店名称..." autocomplete="off">
+                      </div>
+                    </div>
+                    <button class="search-submit" type="submit">
+                      <svg><use href="#i-search"></use></svg><span>搜索</span>
+                    </button>
+                  </div>
+                </form>
+
+                <form class="search-form is-visible" id="flightForm" novalidate>
+                  <div class="trip-row">
+                    <div class="trip-tabs" id="tripTabs">
+                      <button class="trip-tab is-active" type="button" data-trip="oneway">单程</button>
+                      <button class="trip-tab" type="button" data-trip="roundtrip">往返</button>
+                    </div>
+                    <span class="trip-note">本地航班数据为模拟生成</span>
+                  </div>
+                  <div class="field-row field-row-main flight-main">
+                    <div class="field field-city" id="flightFromField">
+                      <label for="flightFromInput">出发城市</label>
+                      <div class="field-input-line">
+                        <input id="flightFromInput" type="text" value="上海" autocomplete="off">
+                        <svg class="field-icon"><use href="#i-plane"></use></svg>
+                      </div>
+                      <div class="field-suggest" id="flightFromSuggest" hidden></div>
+                    </div>
+                    <button class="swap-button" id="swapCities" type="button" aria-label="交换出发和到达城市">
+                      <svg><use href="#i-swap"></use></svg>
+                    </button>
+                    <div class="field field-city" id="flightToField">
+                      <label for="flightToInput">到达城市</label>
+                      <div class="field-input-line">
+                        <input id="flightToInput" type="text" value="北京" autocomplete="off">
+                        <svg class="field-icon"><use href="#i-pin"></use></svg>
+                      </div>
+                      <div class="field-suggest" id="flightToSuggest" hidden></div>
+                    </div>
+                    <div class="field field-single-date" id="flightDateField" role="button" tabindex="0" aria-label="选择出发日期">
+                      <label>出发日期</label>
+                      <strong id="flightDateLabel">10月21日</strong>
+                      <span id="flightDateSub">明天</span>
+                      <svg class="date-calendar-icon"><use href="#i-calendar"></use></svg>
+                    </div>
+                  </div>
+                  <div class="field-row field-row-sub">
+                    <div class="field-cluster">
+                      <div class="field field-compact">
+                        <label for="flightCabin">舱位</label>
+                        <select id="flightCabin">
+                          <option>经济舱</option>
+                          <option>超级经济舱</option>
+                          <option>商务舱</option>
+                          <option>头等舱</option>
+                        </select>
+                      </div>
+                      <div class="field field-compact">
+                        <label for="flightPassengers">乘客</label>
+                        <select id="flightPassengers">
+                          <option value="1">1位成人</option>
+                          <option value="2">2位成人</option>
+                          <option value="3">3位成人</option>
+                          <option value="4">4位成人</option>
+                        </select>
+                      </div>
+                      <div class="field field-compact field-static">
+                        <label>飞行偏好</label>
+                        <span>直飞优先 · 含税价</span>
+                      </div>
+                    </div>
+                    <button class="search-submit" type="submit">
+                      <svg><use href="#i-search"></use></svg><span>搜索</span>
+                    </button>
+                  </div>
+                </form>
+
+                <form class="search-form" id="trainForm" novalidate hidden>
+                  <div class="field-row field-row-main flight-main">
+                    <div class="field field-city" id="trainFromField">
+                      <label for="trainFromInput">出发城市</label>
+                      <div class="field-input-line">
+                        <input id="trainFromInput" type="text" value="上海" autocomplete="off">
+                        <svg class="field-icon"><use href="#i-train"></use></svg>
+                      </div>
+                      <div class="field-suggest" id="trainFromSuggest" hidden></div>
+                    </div>
+                    <button class="swap-button" id="swapTrainCities" type="button" aria-label="交换出发和到达城市">
+                      <svg><use href="#i-swap"></use></svg>
+                    </button>
+                    <div class="field field-city" id="trainToField">
+                      <label for="trainToInput">到达城市</label>
+                      <div class="field-input-line">
+                        <input id="trainToInput" type="text" value="北京" autocomplete="off">
+                        <svg class="field-icon"><use href="#i-pin"></use></svg>
+                      </div>
+                      <div class="field-suggest" id="trainToSuggest" hidden></div>
+                    </div>
+                    <div class="field field-single-date" id="trainDateField" role="button" tabindex="0" aria-label="选择出发日期">
+                      <label>出发日期</label>
+                      <strong id="trainDateLabel">10月21日</strong>
+                      <span id="trainDateSub">明天</span>
+                      <svg class="date-calendar-icon"><use href="#i-calendar"></use></svg>
+                    </div>
+                  </div>
+                  <div class="field-row field-row-sub">
+                    <div class="field-cluster">
+                      <div class="field field-compact">
+                        <label for="trainType">车次类型</label>
+                        <select id="trainType">
+                          <option value="all">全部车次</option>
+                          <option value="G">只看高铁 G</option>
+                          <option value="D">只看动车 D</option>
+                        </select>
+                      </div>
+                      <div class="field field-compact">
+                        <label for="trainPassengers">乘客</label>
+                        <select id="trainPassengers">
+                          <option value="1">1位成人</option>
+                          <option value="2">2位成人</option>
+                          <option value="3">3位成人</option>
+                        </select>
+                      </div>
+                      <div class="field field-compact field-static">
+                        <label>出行提示</label>
+                        <span>可刷证乘车 · 模拟余票</span>
+                      </div>
+                    </div>
+                    <button class="search-submit" type="submit">
+                      <svg><use href="#i-search"></use></svg><span>搜索</span>
+                    </button>
+                  </div>
+                </form>
+
+                <form class="search-form" id="ticketForm" novalidate hidden>
+                  <div class="field-row field-row-main flight-main">
+                    <div class="field field-city" id="ticketCityField">
+                      <label for="ticketCityInput">目的地城市</label>
+                      <div class="field-input-line">
+                        <input id="ticketCityInput" type="text" value="上海" autocomplete="off">
+                        <svg class="field-icon"><use href="#i-location"></use></svg>
+                      </div>
+                      <div class="field-suggest" id="ticketCitySuggest" hidden></div>
+                    </div>
+                    <div class="field field-single-date" id="ticketDateField" role="button" tabindex="0" aria-label="选择游玩日期">
+                      <label>游玩日期</label>
+                      <strong id="ticketDateLabel">10月21日</strong>
+                      <span id="ticketDateSub">明天</span>
+                      <svg class="date-calendar-icon"><use href="#i-calendar"></use></svg>
+                    </div>
+                    <div class="field field-keyword field-keyword-large">
+                      <label for="ticketKeyword">景点/活动关键词</label>
+                      <input id="ticketKeyword" type="text" placeholder="如：游船、博物馆、亲子" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="field-row field-row-sub">
+                    <div class="field-cluster">
+                      <div class="field field-compact field-static">
+                        <label>热门主题</label>
+                        <span>城市观光 · 自然户外 · 亲子乐园</span>
+                      </div>
+                      <div class="field field-compact field-static">
+                        <label>服务保障</label>
+                        <span>免费取消 · 快速出票</span>
+                      </div>
+                    </div>
+                    <button class="search-submit" type="submit">
+                      <svg><use href="#i-search"></use></svg><span>搜索</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            <button class="biz-banner" id="bizBanner" type="button">
+              <span class="biz-copy">
+                <strong>橙程商旅 · 让企业差旅更简单</strong>
+                <span>节省高达 30% 差旅费用，统一预订与对账</span>
+              </span>
+              <span class="biz-cta">
+                <span class="biz-coupon">免费注册领券包</span>
+                <svg class="gift-art" viewBox="0 0 64 64" aria-hidden="true">
+                  <rect x="12" y="22" width="40" height="30" rx="4" fill="#ffd76e"></rect>
+                  <rect x="9" y="16" width="46" height="10" rx="3" fill="#fff2c2"></rect>
+                  <path d="M32 16v36" stroke="#f6a400" stroke-width="4"></path>
+                  <path d="M32 16c-8 0-12-3-12-7s6-5 10 1c1 2 2 4 2 6Zm0 0c8 0 12-3 12-7s-6-5-10 1c-1 2-2 4-2 6Z" fill="#fff2c2"></path>
+                </svg>
+              </span>
+              <span class="biz-dots"><i></i><i></i><i></i><i></i></span>
+            </button>
+
+            <div class="utility-grid">
+              <button class="utility-card" id="aiPlannerTrigger" type="button">
+                <span class="utility-icon"><svg><use href="#i-sparkle"></use></svg></span>
+                <span class="utility-copy"><strong>AI 行程助手</strong><small>输入目的地与偏好，一键生成行程</small></span>
+                <span class="utility-chip">开始规划 <svg><use href="#i-arrow-right"></use></svg></span>
+              </button>
+              <button class="utility-card" id="travelMapTrigger" type="button">
+                <span class="utility-icon is-map"><svg><use href="#i-map"></use></svg></span>
+                <span class="utility-copy"><strong>旅游地图</strong><small>按位置浏览酒店与热门去处</small></span>
+                <span class="utility-chip">去探索 <svg><use href="#i-arrow-right"></use></svg></span>
+              </button>
+            </div>
+
+            <section class="recommend-section" id="recommendSection">
+              <div class="section-head">
+                <div class="section-title">
+                  <h2>酒店推荐</h2>
+                  <span>本地精选 · 数据为模拟</span>
+                </div>
+                <div class="city-tabs-wrap">
+                  <div class="city-tabs" id="cityTabs"></div>
+                  <div class="more-cities" id="moreCitiesWrap">
+                    <button class="more-cities-trigger" id="moreCitiesTrigger" type="button">更多 <svg><use href="#i-chevron-down"></use></svg></button>
+                    <div class="more-cities-panel" id="moreCitiesPanel" hidden></div>
+                  </div>
+                </div>
+              </div>
+              <div class="hotel-carousel">
+                <button class="carousel-arrow prev" id="hotelPrev" type="button" aria-label="上一组酒店"><svg><use href="#i-chevron-left"></use></svg></button>
+                <div class="hotel-card-grid" id="recommendCards"></div>
+                <button class="carousel-arrow next" id="hotelNext" type="button" aria-label="下一组酒店"><svg><use href="#i-chevron-right"></use></svg></button>
+              </div>
+            </section>
+          </div>
+
+          <aside class="side-column">
+            <section class="destination-card" id="destinationCard" aria-label="目的地酒店灵感">
+              <img class="destination-image" id="destinationImage" src="assets/hero-qingdao.jpg" alt="青岛海岸城市风光">
+              <div class="destination-shade"></div>
+              <div class="destination-top">
+                <div class="destination-heading">
+                  <span class="destination-kicker" id="destinationKicker">目的地灵感</span>
+                  <h2 id="destinationTitle">青岛必住酒店攻略</h2>
+                  <p id="destinationSubtitle">红瓦绿树 · 碧海蓝天</p>
+                  <div class="destination-dots" id="destinationDots" role="tablist" aria-label="切换目的地"></div>
+                </div>
+                <div class="mini-hotel-list" id="miniHotelList"></div>
+              </div>
+              <button class="ranking-banner" id="rankingTrigger" type="button">
+                <span class="ranking-mark"><svg><use href="#i-star"></use></svg></span>
+                <span><strong>橙程榜单</strong><small>解决旅行选择难题</small></span>
+                <svg class="ranking-arrow"><use href="#i-arrow-right"></use></svg>
+              </button>
+            </section>
+            <button class="business-side-card" id="businessSideCard" type="button">
+              <span>
+                <strong>橙程商旅</strong>
+                <small>企业差旅一站式服务平台</small>
+              </span>
+              <span class="business-illustration">
+                <svg viewBox="0 0 120 70" aria-hidden="true">
+                  <rect x="10" y="44" width="90" height="8" rx="4" fill="rgba(255,255,255,.35)"></rect>
+                  <rect x="20" y="24" width="54" height="22" rx="4" fill="#fff" opacity=".92"></rect>
+                  <rect x="26" y="30" width="26" height="3" rx="1.5" fill="#2f86f6"></rect>
+                  <rect x="26" y="36" width="38" height="3" rx="1.5" fill="#b9d8ff"></rect>
+                  <circle cx="92" cy="30" r="16" fill="#ffcf5c"></circle>
+                  <path d="m86 30 4 4 8-8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </span>
+            </button>
+          </aside>
+        </div>
+
+        <footer class="site-footer" id="siteFooter">
+          <div class="footer-main">
+            <div class="footer-brand">
+              <div class="footer-logo">
+                <span class="brand-mark small" aria-hidden="true">
+                  <svg viewBox="0 0 44 44">
+                    <circle cx="22" cy="22" r="21" fill="#ff8a00"></circle>
+                    <path d="M7 28c6.2-6.6 12.7-9.7 20.6-10.2 3.9-.2 6.7.5 9.4 2.5-6.6 8-15.3 11.2-25 10.4L7 28Z" fill="#fff"></path>
+                    <path d="M9 24.5c4.8-4 10.1-6.1 16.1-6.6" fill="none" stroke="#0086f6" stroke-width="2.4" stroke-linecap="round"></path>
+                  </svg>
+                </span>
+                <strong>橙程旅行</strong>
+              </div>
+              <p>航空旅行一站式服务平台：整合机票、酒店与门票，提供动态票价、智能推荐、订单支付、在线值机与行程规划。</p>
+              <span class="footer-demo">本地演示 · 非真实预订平台</span>
+            </div>
+            <div class="footer-links">
+              <div><h4>关于</h4><button type="button" data-footer-link>关于橙程</button><button type="button" data-footer-link>服务协议</button><button type="button" data-footer-link>隐私说明</button></div>
+              <div><h4>帮助</h4><button type="button" data-footer-link>帮助中心</button><button type="button" data-footer-link>订单说明</button><button type="button" data-footer-link>取消政策</button></div>
+              <div><h4>发现</h4><button type="button" data-footer-link>目的地灵感</button><button type="button" data-footer-link>酒店榜单</button><button type="button" data-footer-link>旅行地图</button></div>
+              <div><h4>联系</h4><button type="button" id="footerSupport">在线客服</button><button type="button" data-footer-link>商务合作</button><button type="button" data-footer-link>加入我们</button></div>
+            </div>
+          </div>
+          <div class="footer-bottom">
+            <span>© 2026 橙程旅行（本地演示）</span>
+            <span>本页面与携程旅行网及任何真实旅行服务商无关联，不提供真实预订、支付或出行服务。</span>
+          </div>
+        </footer>
+      </section>
+
+      <section class="results-view" id="resultsView" hidden>
+        <div class="results-header">
+          <button class="back-button" id="backHome" type="button"><svg><use href="#i-chevron-left"></use></svg>返回首页</button>
+          <div class="results-heading">
+            <h1 id="resultsTitle">上海酒店</h1>
+            <p id="resultsMeta"></p>
+          </div>
+          <button class="ghost-button" id="editSearch" type="button">修改搜索</button>
+        </div>
+        <div class="results-layout" id="resultsLayout">
+          <aside class="filter-panel" id="filterPanel">
+            <div class="filter-head"><h3>筛选</h3><button id="resetFilters" type="button">重置</button></div>
+            <div class="filter-group">
+              <h4>价格</h4>
+              <div class="chip-list" id="priceFilters">
+                <button type="button" class="filter-chip is-active" data-price="all">不限</button>
+                <button type="button" class="filter-chip" data-price="0-500">¥500以下</button>
+                <button type="button" class="filter-chip" data-price="500-1000">¥500–1000</button>
+                <button type="button" class="filter-chip" data-price="1000+">¥1000以上</button>
+              </div>
+            </div>
+            <div class="filter-group">
+              <h4>星级</h4>
+              <div class="chip-list" id="starFilters">
+                <button type="button" class="filter-chip is-active" data-star="all">不限</button>
+                <button type="button" class="filter-chip" data-star="3">3星</button>
+                <button type="button" class="filter-chip" data-star="4">4星</button>
+                <button type="button" class="filter-chip" data-star="5">5星</button>
+              </div>
+            </div>
+            <div class="filter-group">
+              <h4>特色</h4>
+              <div class="chip-list" id="tagFilters">
+                <button type="button" class="filter-chip" data-tag="含双早">含双早</button>
+                <button type="button" class="filter-chip" data-tag="免费取消">免费取消</button>
+                <button type="button" class="filter-chip" data-tag="近地铁">近地铁</button>
+                <button type="button" class="filter-chip" data-tag="亲子友好">亲子友好</button>
+              </div>
+            </div>
+            <div class="filter-tip"><svg><use href="#i-info"></use></svg><span>筛选会即时应用到当前模拟结果。</span></div>
+          </aside>
+          <section class="results-list-wrap">
+            <div class="results-toolbar">
+              <span class="result-count" id="resultsCount"></span>
+              <div class="toolbar-right">
+                <span>排序</span>
+                <select id="sortSelect" aria-label="排序方式"></select>
+              </div>
+            </div>
+            <div class="result-list" id="resultList"></div>
+          </section>
+          <aside class="results-side" id="resultsSide">
+            <div class="summary-card" id="summaryCard"></div>
+            <div class="map-teaser" id="mapTeaser">
+              <div class="map-teaser-art" aria-hidden="true">
+                <svg viewBox="0 0 260 130">
+                  <rect width="260" height="130" fill="#eaf3ff"></rect>
+                  <path d="M-10 92c50-22 82-8 128-26s80-42 152-26v100H-10Z" fill="#cfe8df"></path>
+                  <path d="M-20 112c48-36 83-26 123-44s82-30 177-8" fill="none" stroke="#9cc7f7" stroke-width="16"></path>
+                  <path d="M12 18h236M12 76h236M74 8v114M178 8v114" stroke="#fff" stroke-width="7"></path>
+                  <circle cx="78" cy="48" r="9" fill="#0086f6"></circle>
+                  <circle cx="78" cy="48" r="3" fill="#fff"></circle>
+                  <circle cx="150" cy="82" r="9" fill="#ff8a00"></circle>
+                  <circle cx="150" cy="82" r="3" fill="#fff"></circle>
+                  <circle cx="206" cy="38" r="9" fill="#0086f6"></circle>
+                  <circle cx="206" cy="38" r="3" fill="#fff"></circle>
+                </svg>
+              </div>
+              <div class="map-teaser-copy"><strong>地图找酒店</strong><span>按商圈位置浏览附近房源</span></div>
+              <button class="ghost-button small" id="openMapBtn" type="button">打开地图</button>
+            </div>
+            <div class="tips-card">
+              <h4><svg><use href="#i-shield"></use></svg>本地预订演示</h4>
+              <p>搜索、筛选、查看详情、提交订单和取消订单均在浏览器本地完成，不会向你收取任何费用，也不连接真实旅行服务商。</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="orders-view" id="ordersView" hidden>
+        <div class="results-header orders-page-head">
+          <button class="back-button" id="ordersBack" type="button"><svg><use href="#i-chevron-left"></use></svg>返回首页</button>
+          <div class="results-heading">
+            <h1>我的订单</h1>
+            <p id="ordersMeta">订单状态、支付与值机流程均可在本地完成</p>
+          </div>
+          <div class="orders-head-actions">
+            <span class="agency-scope-badge" id="agencyScopeBadge" hidden>旅行社视角 · 全部订单</span>
+            <button class="ghost-button" id="ordersRefresh" type="button">刷新</button>
+          </div>
+        </div>
+        <div class="order-status-tabs" id="orderStatusTabs">
+          <button type="button" class="is-active" data-order-tab="all">全部</button>
+          <button type="button" data-order-tab="PENDING_PAYMENT">待付款</button>
+          <button type="button" data-order-tab="PAID">已支付</button>
+          <button type="button" data-order-tab="CHECKED_IN">已值机</button>
+          <button type="button" data-order-tab="CANCELLED">已取消</button>
+        </div>
+        <div class="orders-page-layout">
+          <div class="orders-page-main">
+            <div class="orders-page-list" id="ordersPageList"></div>
+          </div>
+          <aside class="orders-page-side">
+            <div class="summary-card">
+              <h3>订单状态说明</h3>
+              <div class="state-machine-list">
+                <div><span class="state-dot pending"></span><strong>待付款</strong><p>创建订单后保留 15 分钟，超时自动失效。</p></div>
+                <div><span class="state-dot paid"></span><strong>已支付</strong><p>支付成功后，机票订单可继续在线值机；酒店与门票订单等待出行。</p></div>
+                <div><span class="state-dot checked"></span><strong>已值机</strong><p>完成选座并生成登机牌，订单进入出行阶段。</p></div>
+                <div><span class="state-dot cancelled"></span><strong>已取消 / 已失效</strong><p>终态，不可再次支付或值机。</p></div>
+              </div>
+            </div>
+            <div class="tips-card">
+              <h4><svg><use href="#i-info"></use></svg>本地状态机</h4>
+              <p>所有状态变化由本地后端校验并记录在订单历史中。模拟支付与值机不会连接真实航信、支付或机场系统。</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="overlay" hidden>
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" id="modalClose" type="button" aria-label="关闭"><svg><use href="#i-close"></use></svg></button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
