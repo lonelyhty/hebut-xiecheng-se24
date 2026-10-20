@@ -339,10 +339,11 @@ stateDiagram-v2
 | GET | `/api/auth/me` | 是 | 获取当前用户与角色 |
 | POST | `/api/auth/logout` | 是 | 注销会话 |
 | GET | `/api/flights/search` | 否 | `from,to,date,passengers(1–6),cabin`；可带 `airline,departWindow,maxPrice`；返回 5 个航班、`calendar`、`quoteId` 与推荐 |
+| GET | `/api/trains/search` | 否 | `from,to,date,passengers,type`；返回本地模拟车次 |
 | GET | `/api/hotels/search` | 否 | `city,checkin,checkout[,keyword,level]` |
 | GET | `/api/attractions/search` | 否 | `city,date[,keyword]` |
 | POST | `/api/itineraries` | 否 | `{city, days, preferences}` |
-| POST | `/api/orders` | 是 | `type=flight` 用 `quoteId + passengers[{name,document}] + contact`；`hotel` 用 `hotelId/roomIndex/checkin/checkout/rooms` 并扣减房量；`ticket` 用 `ticketId/city/date` |
+| POST | `/api/orders` | 是 | `type=flight` 用 `quoteId + passengers[{name,document}] + contact`；`hotel` 用 `hotelId/roomIndex/checkin/checkout/rooms` 并扣减房量；`train` 用 `trainId/fromCity/toCity/date/passengers`；`ticket` 用 `ticketId/city/date` |
 | GET | `/api/orders` | 是 | 当前用户订单；旅行社可加 `?scope=all` |
 | GET | `/api/orders/:id` | 是 | 订单详情（所有者或旅行社） |
 | POST | `/api/orders/:id/pay` | 是 | `{method: alipay|wechat|card}` |
@@ -363,7 +364,7 @@ stateDiagram-v2
 
 - `users`：`id, phone, name, role, createdAt`
 - `sessions`：`token, userId, role, createdAt, expiresAt`（7 天）
-- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, contact, passengers, items, details, payment, ticketing, checkin, history, createdAt, updatedAt`
+- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, contact, passengers, items, details, payment, ticketing, checkin, history, createdAt, updatedAt`；`type` 支持 `flight/hotel/ticket/train`
 - `quotes`：仅内存保存，`id, flight, unitPrice, passengers, expiresAt, usedAt`，10 分钟 TTL
 - `inventory`：按航班 ID 保存 `{ totalSeats, reservedSeats }`，用于余票校验与释放
 - `hotelInventory`：按「酒店 ID → 房型索引」保存 `{ totalRooms, reservedRooms }`，用于酒店房量校验与释放

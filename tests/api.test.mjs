@@ -251,6 +251,35 @@ test('cancellation, hotel and ticket orders, roles and access control', async ()
   assert.equal(ticketOrder.status, 201);
   assert.equal(ticketOrder.payload.order.total, attraction.price * 2);
 
+  const trainSearch = await call('GET', `/api/trains/search?${query({
+    from: '上海', to: '北京', date: CHECKIN, passengers: 1, type: 'all'
+  })}`);
+  assert.equal(trainSearch.status, 200);
+  assert.ok(trainSearch.payload.results.length > 0);
+  const train = trainSearch.payload.results[0];
+  const trainOrder = await call('POST', '/api/orders', {
+    token: travelerToken,
+    body: {
+      type: 'train',
+      trainId: train.id,
+      fromCity: '上海',
+      toCity: '北京',
+      date: CHECKIN,
+      passengers: 1,
+      contact: { name: '测试旅客', phone: '13800138000' }
+    }
+  });
+  assert.equal(trainOrder.status, 201);
+  assert.equal(trainOrder.payload.order.type, 'train');
+  assert.equal(trainOrder.payload.order.status, 'PENDING_PAYMENT');
+  assert.equal(trainOrder.payload.order.total, train.price);
+  const paidTrain = await call('POST', `/api/orders/${trainOrder.payload.order.id}/pay`, {
+    token: travelerToken,
+    body: { method: 'alipay' }
+  });
+  assert.equal(paidTrain.status, 200);
+  assert.equal(paidTrain.payload.order.status, 'PAID');
+
   const scopeAllTraveler = await call('GET', '/api/orders?scope=all', { token: travelerToken });
   assert.equal(scopeAllTraveler.status, 403);
 

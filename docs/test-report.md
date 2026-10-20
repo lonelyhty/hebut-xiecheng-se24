@@ -12,13 +12,13 @@
 tests 12
 pass 12
 fail 0
-duration_ms 292.3721
+duration_ms 334.7645
 ```
 
 | # | 测试 | 覆盖点 | 结果 |
 |---|---|---|---|
 | 1 | full flight lifecycle | 搜索（32 城/5 航司/5 班）、报价、鉴权、1–6 位乘机人、库存扣减、支付出票、180 座座位图、48h–45min 值机窗口、PNR/票号登机牌、非法重复支付、已值机取消 | PASS |
-| 2 | cancellation, hotel and ticket orders, roles and access control | 取消与模拟退款、重复取消、酒店订单金额、酒店房量扣减/超卖拒绝/取消释放、门票数量金额、旅客 scope=all 403、旅行社跨用户读取、行程 API、404 | PASS |
+| 2 | cancellation, hotel, train and ticket orders, roles and access control | 取消与模拟退款、重复取消、酒店订单金额、酒店房量扣减/超卖拒绝/取消释放、门票数量金额、火车票后端下单/支付/状态、旅客 scope=all 403、旅行社跨用户读取、行程 API、404 | PASS |
 | 3 | flight search returns priced flights with recommendation metadata | 5 条航班、真实机场/航站楼、价格/税费、余票、7 日低价、推荐 ID、最低价一致性 | PASS |
 | 4 | dynamic pricing deterministic and time-sensitive | 同一 5 分钟价格桶可复现；跨价格桶价格变化 | PASS |
 | 5 | cabin/passenger effects | 舱位因子、乘客数对报价的影响 | PASS |
@@ -44,10 +44,10 @@ duration_ms 292.3721
 
 | 指标 | 进程内搜索（400 次） | HTTP 搜索（40 次串行） |
 |---|---:|---:|
-| p50 | 0.134 ms | 0.898 ms |
-| p95 | **0.298 ms** | **1.711 ms** |
-| p99 | 0.387 ms | 2.321 ms |
-| max | 2.174 ms | 2.321 ms |
+| p50 | 0.153 ms | 0.966 ms |
+| p95 | **0.369 ms** | **2.478 ms** |
+| p99 | 0.627 ms | 2.918 ms |
+| max | 2.289 ms | 2.918 ms |
 
 测试为单机、确定性模拟库存，不代表生产容量。HTTP 测试包含本地网络与 JSON 序列化开销；阈值分别设为 p95 < 50 ms 与 p95 < 250 ms，均远低于阈值。生产环境仍需针对并发、冷启动、数据库与外部供应商延迟单独压测。
 
@@ -67,6 +67,9 @@ duration_ms 292.3721
 | 机票全流程 | 搜索 → 选航班 → 填乘机人 → 下单 → 支付出票 → 值机 → PNR/票号登机牌 | `ev_89e3f3c76e4638944d71a8810d26c1c9e1a960a2aa24f6261cc7ddfd43242703` | [boarding-pass.png](screenshots/boarding-pass.png) | 16 步完成，页面错误 0 |
 | 酒店 | 酒店搜索 → 详情 → 房型 → 下单 → 支付 | `ev_bcb238ff89490bea3bf3182ef8a14f775e4400e62ceff29153087bcad1bed409` | [hotel-payment.png](screenshots/hotel-payment.png) | 15 步完成，页面错误 0 |
 | 酒店房量扣减 | 预订房型后关闭支付 → 重新打开详情查看剩余房量 | `ev_6eb0c04d0f929f82bde15a2bda63368bc0ae2d2b8c2a4e015960a87147d672b4` | [hotel-inventory.png](screenshots/hotel-inventory.png) | 16 步完成，页面错误 0 |
+| 火车票支付并查看已支付 | 搜索火车票 → 下单 → 支付 → 打开订单 → 点击“已支付” | `ev_2c011714e388a50edd28bcec2764ba58fff0cb0df9be4d4af91b250e68e5f6bd` | [train-paid.png](screenshots/train-paid.png) | 16 步完成，页面错误 0 |
+| 已支付标签（酒店 + 火车票） | 创建并支付酒店订单后，打开“已支付”标签 | `ev_9fa80ba9cdf3a38b04c50db44c5c7afc68456e265e349b08702c3328b013efbf` | [orders-paid.png](screenshots/orders-paid.png) | 6 步完成，页面错误 0 |
+| 已值机标签（机票） | 打开订单页并筛选“已值机” | `ev_0ab061107fee6fbb2779caec3534911bf10c4de9a1d4fcf4038e7b14928de93f` | [orders-checked-in.png](screenshots/orders-checked-in.png) | 6 步完成，页面错误 0 |
 | 门票 | 门票搜索 → 详情 → 下单 → 支付 | `ev_ad3f19188ca0211ed525ea4da9ad5e91f00b29566e27157c935124bdf6d6ed48` | [ticket-payment.png](screenshots/ticket-payment.png) | 15 步完成，页面错误 0 |
 | 行程规划 | 打开 AI 行程助手 → 调用后端生成 3 日行程 | `ev_aa5b5e4723d9ea3eea405d92fa218a3e170bb3aa14b728b121623d6b2272be05` | [itinerary-planner.png](screenshots/itinerary-planner.png) | 7 步完成，页面错误 0 |
 | 订单管理页 | 打开订单中心 → 加载 3 个不同状态订单 | `ev_4fd90a5c9f3cd6eb44c10ab50ce8676eb2191f88afc6ce10a216722ba557ff80` | [orders.png](screenshots/orders.png) | 6 步完成，页面错误 0 |
@@ -91,6 +94,7 @@ duration_ms 292.3721
 | 查询到订单创建完整流程 | REA 机票全流程，从搜索结果到支付、值机和登录补全均有证据 |
 | 搜索性能 | 400 次进程内 + 40 次 HTTP 性能测试（含 7 日低价日历），均有阈值断言 |
 | 订单状态流转 | 状态机单元测试 + API 生命周期 + 15 分钟过期/取消/已值机拒绝取消；酒店超时/取消释放房量 |
+| 订单状态标签 | 机票、酒店、火车票、门票统一后端状态；已支付/已值机标签可正确筛选；本地旧订单“已确认”映射到已支付 |
 | 前后端分离 | 静态 SPA + Node JSON API；浏览器通过 `fetch` 调用 `/api` |
 | 外部模拟 API 集成方案 | MockPay 适配器已实现；航信/DCS 的替换点与生产方案见设计文档 |
 

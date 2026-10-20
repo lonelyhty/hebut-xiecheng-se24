@@ -11,6 +11,12 @@ const QUOTE_TTL_MS = 10 * 60 * 1000;
 const PENDING_TTL_MS = 15 * 60 * 1000;
 const DAY_MS = 86400000;
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const ORDER_TYPE_META = {
+  flight: { typeLabel: '机票', kindLabel: '机票订单' },
+  hotel: { typeLabel: '酒店', kindLabel: '酒店订单' },
+  ticket: { typeLabel: '门票', kindLabel: '门票订单' },
+  train: { typeLabel: '火车票', kindLabel: '火车票订单' }
+};
 
 function dayOffset(fromKey, toKey) {
   return Math.round((Date.parse(`${toKey}T00:00:00Z`) - Date.parse(`${fromKey}T00:00:00Z`)) / DAY_MS);
@@ -252,6 +258,26 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     };
   }
 
+  function searchTrains(params) {
+    const now = clock();
+    const from = TRAVEL_DATA.normalizeCity(params.from);
+    const to = TRAVEL_DATA.normalizeCity(params.to);
+    if (!from || !to) throw badRequest('请填写出发与到达城市');
+    if (from === to) throw badRequest('出发和到达城市不能相同');
+    const date = validateFutureDate(params.date, '出发日期', now, 180);
+    const passengers = Number(params.passengers || 1);
+    if (!Number.isInteger(passengers) || passengers < 1 || passengers > 6) throw badRequest('乘客数量应为 1-6');
+    let results = TRAVEL_DATA.getTrains(from, to, date.key);
+    if (params.type && params.type !== 'all') {
+      results = results.filter((train) => train.typeCode === params.type);
+    }
+    return {
+      query: { from, to, date: date.key, passengers, type: params.type || 'all' },
+      generatedAt: now.toISOString(),
+      results
+    };
+  }
+
   async function createOrder(user, input) {
     const now = clock();
     const contact = normalizeContact(input && input.contact);
@@ -260,8 +286,8 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       user,
       now,
       type,
-      typeLabel: type === 'flight' ? '机票' : type === 'hotel' ? '酒店' : '门票',
-      kindLabel: type === 'flight' ? '机票订单' : type === 'hotel' ? '酒店订单' : '门票订单',
+      typeLabel: (ORDER_TYPE_META[type] || ORDER_TYPE_META.ticket).typeLabel,
+      kindLabel: (ORDER_TYPE_META[type] || ORDER_TYPE_META.ticket).kindLabel,
       contact
     });
 
@@ -409,6 +435,53 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           city: ticket.city,
           date: date.key,
           quantity
+        }
+      };
+    } else if (type === 'train') {
+      const fromCity = TRAVEL_DATA.normalizeCity(input.fromCity || input.from);
+      const toCity = TRAVEL_DATA.normalizeCity(input.toCity || input.to);
+      if (!fromCity || !toCity) throw badRequest('请填写出发与到达城市');
+      if (fromCity === toCity) throw badRequest('出发和到达城市不能相同');
+      const date = validateFutureDate(input.date, '出发日期', now, 180);
+      const trains = TRAVEL_DATA.getTrains(fromCity, toCity, date.key);
+      const train = trains.find((item) => item.id === input.trainId);
+      if (!train) throw notFound('车次不存在，请重新搜索');
+      const passengers = Number(input.passengers || 1);
+      if (!Number.isInteger(passengers) || passengers < 1 || passengers > 6) throw badRequest('乘客数量应为 1-6');
+      const total = train.price * passengers;
+      order = {
+        ...base,
+        title: `${train.from} → ${train.to} · ${train.no}`,
+        subtitle: `${train.type} · ${train.duration} · 直达`,
+        dateLabel: `${formatCnDate(date.key)} ${train.dep}`,
+        guestLabel: `${passengers}位成人`,
+        meta: [train.no, train.type],
+        total,
+        items: [
+          {
+            type: 'train',
+            trainNo: train.no,
+            from: train.from,
+            to: train.to,
+            dep: train.dep,
+            arr: train.arr,
+            unitPrice: train.price,
+            passengers
+          }
+        ],
+        details: {
+          trainId: train.id,
+          trainNo: train.no,
+          fromCity,
+          toCity,
+          from: train.from,
+          to: train.to,
+          date: date.key,
+          dep: train.dep,
+          arr: train.arr,
+          extraDay: train.extraDay,
+          passengers,
+          unitPrice: train.price
         }
       };
     } else {
@@ -614,6 +687,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
   return {
     searchFlights,
     searchHotels,
+    searchTrains,
     searchAttractions,
     createOrder,
     listOrders,

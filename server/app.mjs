@@ -219,6 +219,19 @@ export async function createApplication(options = {}) {
         return;
       }
 
+      if (pathname === '/api/trains/search' && method === 'GET') {
+        const query = queryObject(url);
+        const result = services.searchTrains({
+          from: query.from,
+          to: query.to,
+          date: query.date,
+          passengers: requireInteger(query.passengers, 1),
+          type: query.type || 'all'
+        });
+        sendJson(response, 200, result);
+        return;
+      }
+
       if (pathname === '/api/hotels/search' && method === 'GET') {
         const query = queryObject(url);
         const result = services.searchHotels({
