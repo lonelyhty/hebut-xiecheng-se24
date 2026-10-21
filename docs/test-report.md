@@ -9,10 +9,10 @@
 ## 1. 自动化测试结果
 
 ```
-tests 12
-pass 12
+tests 18
+pass 18
 fail 0
-duration_ms 382.2349
+duration_ms 294.9069
 ```
 
 | # | 测试 | 覆盖点 | 结果 |
@@ -29,6 +29,7 @@ duration_ms 382.2349
 | 10 | itinerary planner | 逐日行程、酒店与花费、城市/天数校验 | PASS |
 | 11 | in-process search performance | 400 次搜索的 p50/p95/p99 | PASS |
 | 12 | HTTP search performance | 40 次串行 HTTP 搜索的 p50/p95/p99 | PASS |
+| 13 | browser local orders | 本地订单创建即待付款、本地支付/取消状态机、模拟退款、15 分钟失效、旧状态归一化、跨标签页不覆盖 | PASS |
 
 额外覆盖（位于 API 生命周期测试中）：
 
