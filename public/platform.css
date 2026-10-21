@@ -110,6 +110,8 @@
 .state-dot.local { background: #8fa2ba; }
 
 /* Payment */
+.payment-actions { flex-wrap: wrap; gap: 8px; }
+.order-page-facts > span, .order-number-box strong { overflow-wrap: anywhere; }
 .payment-amount {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 18px 16px; border: 1px solid #e1efff; border-radius: 12px;

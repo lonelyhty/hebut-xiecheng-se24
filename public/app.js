@@ -1,5 +1,6 @@
 import { TRAVEL_DATA as DATA } from './data.js';
 import { api } from './api.js';
+import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrder } from './local-orders.js';
 
 (function () {
   'use strict';
@@ -165,7 +166,7 @@ import { api } from './api.js';
     plannerResult: null,
     authTimer: null,
     favorites: new Set(Array.isArray(storedFavorites) ? storedFavorites : []),
-    orders: Array.isArray(storedOrders) ? storedOrders : [],
+    orders: Array.isArray(storedOrders) ? storedOrders.filter(function (order) { return !order.userId; }).map(normalizeLocalOrder) : [],
     user: storedUser && typeof storedUser === 'object' && storedUser.phone ? storedUser : null,
     calendar: null,
     lastFocused: null
@@ -469,7 +470,8 @@ import { api } from './api.js';
     try {
       const scope = state.user && state.user.role === 'agency' ? 'all' : 'mine';
       const result = await api.listOrders(scope);
-      state.orders = result.orders || [];
+      const localOrders = readStore(STORAGE.orders, []);
+      state.orders = (result.orders || []).concat(Array.isArray(localOrders) ? localOrders.filter(function (order) { return !order.userId; }).map(normalizeLocalOrder) : []);
       state.ordersScope = result.scope || scope;
       state.ordersLoading = false;
       renderOrdersPreview();
@@ -592,7 +594,7 @@ import { api } from './api.js';
       actions.push('<button class="primary-button small" type="button" data-order-pay="' + esc(order.id) + '">去支付</button>');
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
     } else if (status === 'PAID') {
-      if (order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1)) {
+      if (order.userId && order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1)) {
         actions.push('<button class="primary-button small" type="button" data-order-checkin="' + esc(order.id) + '">在线值机</button>');
       }
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
@@ -628,6 +630,8 @@ import { api } from './api.js';
   }
 
   function renderOrdersPage() {
+    syncLocalOrders();
+    state.orders.forEach(function (order) { if (expireLocalOrder(order)) persistLocalOrders(order); });
     if (!state.apiOnline && !state.user && !state.orders.length) {
       $('#ordersMeta').textContent = '本地模拟模式：登录或直接预订后即可查看订单';
     } else {
@@ -708,8 +712,35 @@ import { api } from './api.js';
     const index = state.orders.findIndex(function (item) { return item.id === order.id; });
     if (index === -1) state.orders.unshift(order);
     else state.orders[index] = order;
+    if (!order.userId) persistLocalOrders(order);
     if (!$('#ordersView').hidden) renderOrdersPage();
     renderOrdersPreview();
+  }
+
+  function syncLocalOrders() {
+    const saved = readStore(STORAGE.orders, state.orders.filter(function (order) { return !order.userId; }));
+    const local = Array.isArray(saved) ? saved.filter(function (order) { return !order.userId; }).map(normalizeLocalOrder) : [];
+    state.orders = state.orders.filter(function (order) { return order.userId; }).concat(local);
+    return local;
+  }
+
+  function persistLocalOrders(order) {
+    const saved = readStore(STORAGE.orders, []);
+    const local = Array.isArray(saved) ? saved.filter(function (item) { return !item.userId; }) : [];
+    const index = local.findIndex(function (item) { return item.id === order.id; });
+    if (index === -1) local.unshift(order);
+    else local[index] = order;
+    writeStore(STORAGE.orders, local);
+  }
+
+  function updateLocalOrder(id, action, method) {
+    const latest = syncLocalOrders();
+    const order = latest.find(function (item) { return item.id === id; });
+    try {
+      return changeLocalOrder(latest, id, action, method);
+    } finally {
+      if (order) upsertOrder(order);
+    }
   }
 
   function closeMobileNav() {
@@ -1710,43 +1741,20 @@ import { api } from './api.js';
         return;
       }
     }
-    const order = {
-      id: 'OC' + Date.now().toString().slice(-10) + Math.floor(Math.random() * 90 + 10),
-      kind: draft.kind,
-      kindLabel: draft.kindLabel,
-      title: draft.title,
-      status: '已确认',
-      statusLabel: '已确认（本地）',
-      createdAt: new Date().toISOString(),
-      dateLabel: draft.dateLabel,
-      guestLabel: draft.guestLabel,
-      meta: draft.meta,
-      total: draft.total,
-      contact: contact,
-      passengers: passengers.length ? passengers : undefined,
-      details: draft.details
-    };
-    state.orders.unshift(order);
-    writeStore(STORAGE.orders, state.orders);
-    renderOrdersPreview();
+    const order = createLocalOrder(draft, contact, passengers);
+    upsertOrder(order);
     state.bookingDraft = null;
-    openModal('<div class="modal-body"><div class="success-modal">' +
-      '<div class="success-icon">' + svgIcon('check') + '</div>' +
-      '<h2 id="modalTitle">预订成功</h2>' +
-      '<p>' + esc(order.title) + '<br>' + esc(order.dateLabel) + ' · ' + esc(order.guestLabel) + '</p>' +
-      '<div class="order-number-box">本地订单号<strong>' + esc(order.id) + '</strong></div>' +
-      '<p>后端未参与此订单，数据保存在浏览器本地存储中。</p>' +
-      '<div class="success-actions"><button class="secondary-button" type="button" data-success-orders>查看订单</button><button class="primary-button" type="button" data-success-close>继续浏览</button></div>' +
-    '</div></div>');
-    toast('本地订单已创建');
+    openPaymentModal(order);
+    toast('订单已创建，状态为待付款');
   }
 
   function openPaymentModal(order) {
     if (!order) return;
-    if (!state.apiOnline) {
+    if (order.userId && !state.apiOnline) {
       toast('模拟支付需要本地后端，请先运行 npm start');
       return;
     }
+    if (expireLocalOrder(order)) upsertOrder(order);
     if (order.status !== 'PENDING_PAYMENT') {
       toast('该订单当前状态为「' + (order.statusLabel || order.status) + '」，无需支付');
       return;
@@ -1758,7 +1766,7 @@ import { api } from './api.js';
       { key: 'card', label: '银行卡', note: '模拟收单', className: 'card' }
     ];
     const html = '<div id="paymentRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">订单支付</h2><p>演示支付由本地 MockPay 沙箱处理，不会跳转真实支付平台。</p></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">订单支付</h2><p>当前状态：待付款 · 请选择立即支付、稍后付款或取消订单。</p></div>' +
       '<div class="modal-body">' +
         '<div class="payment-amount"><span>应付金额</span><strong><em>¥</em>' + money(order.total) + '</strong><small>' + esc(order.title) + '</small></div>' +
         '<div class="form-field" style="margin-top:16px"><label>支付方式</label><div class="payment-methods">' +
@@ -1766,10 +1774,10 @@ import { api } from './api.js';
             return '<button type="button" class="payment-method' + (item.key === method ? ' is-active' : '') + ' is-' + item.className + '" data-pay-method="' + item.key + '"><span class="payment-method-icon">' + (item.key === 'alipay' ? '支' : item.key === 'wechat' ? '微' : '卡') + '</span><span><strong>' + item.label + '</strong><small>' + item.note + '</small></span></button>';
           }).join('') +
         '</div></div>' +
-        '<div class="payment-note">' + svgIcon('shield') + '<span>支付成功后订单进入「已支付」状态；机票订单可继续在线值机。待付款订单保留 15 分钟。</span></div>' +
+        '<div class="payment-note">' + svgIcon('shield') + '<span>待付款订单保留 15 分钟。稍后付款可在“我的订单 → 待付款”中继续支付或取消。付款截止：' + esc(formatDateTime(new Date(new Date(order.createdAt).getTime() + 15 * 60000))) + '</span></div>' +
         '<div class="booking-total"><span>本地模拟支付<br><small style="font-size:10px;color:#9aa6b6">MockPay Sandbox · CNY</small></span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
-        '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>稍后支付</button><button class="primary-button" type="button" id="payNow">立即支付</button></div>' +
-        '<p class="booking-hint">本演示不会采集真实支付凭据。点击支付只会调用本地 /api/orders/:id/pay。</p>' +
+        '<div class="booking-submit-row payment-actions"><button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button><button class="secondary-button" type="button" data-pay-later>稍后付款</button><button class="primary-button" type="button" id="payNow">立即支付</button></div>' +
+        '<p class="booking-hint">本演示不会采集真实支付凭据，也不会产生真实扣款。' + (order.userId ? '订单由本地后端保存。' : '此订单保存在当前浏览器中。') + '</p>' +
       '</div>' +
     '</div>';
     const modal = openModal(html);
@@ -1784,28 +1792,29 @@ import { api } from './api.js';
         return;
       }
       const payButton = event.target.closest('#payNow');
-      if (!payButton) return;
-      payButton.disabled = true;
+      if (!payButton || payButton.disabled) return;
+      const paymentButtons = $$('button', root);
+      paymentButtons.forEach(function (button) { button.disabled = true; });
       payButton.textContent = '支付处理中…';
       try {
-        const result = await api.payOrder(order.id, method);
+        const result = order.userId ? await api.payOrder(order.id, method) : { order: updateLocalOrder(order.id, 'pay', method) };
         upsertOrder(result.order);
         openPaymentSuccess(result.order);
       } catch (error) {
-        payButton.disabled = false;
+        paymentButtons.forEach(function (button) { button.disabled = false; });
         payButton.textContent = '立即支付';
         if (error.status === 401) {
           openAuth('login', { reason: '登录状态已过期，请重新登录后支付' });
           return;
         }
-        if (error.code === 'INVALID_ORDER_STATE') await refreshOrders({ silent: true });
+        if (order.userId && error.code === 'INVALID_ORDER_STATE') await refreshOrders({ silent: true });
         toast(error.message);
       }
     });
   }
 
   function openPaymentSuccess(order) {
-    const canCheckin = order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1);
+    const canCheckin = order.userId && order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1);
     openModal('<div class="modal-body"><div class="success-modal">' +
       '<div class="success-icon">' + svgIcon('check') + '</div>' +
       '<h2 id="modalTitle">支付成功</h2>' +
@@ -1824,7 +1833,8 @@ import { api } from './api.js';
     const order = findOrderById(id);
     if (!order) return;
     const isServerOrder = Boolean(order.userId);
-    if (state.apiOnline && isServerOrder) {
+    if (isServerOrder) {
+      if (!state.apiOnline) { toast('后端订单需要连接本地服务后取消，请先运行 npm start'); return; }
       try {
         const result = await api.cancelOrder(id);
         upsertOrder(result.order);
@@ -1836,12 +1846,9 @@ import { api } from './api.js';
       }
       return;
     }
-    if (order.status === '已取消') return;
-    order.status = '已取消';
-    order.statusLabel = '已取消（本地）';
-    writeStore(STORAGE.orders, state.orders);
-    renderOrdersPreview();
-    if (!$('#ordersView').hidden) renderOrdersPage();
+    try {
+      updateLocalOrder(id, 'cancel');
+    } catch (error) { toast(error.message); return; }
     if (state.modalOpen) closeModal();
     toast('订单已取消（本地模拟）');
   }
@@ -3216,6 +3223,7 @@ import { api } from './api.js';
   }
 
   function performOrderAction(event) {
+    if (event.target.closest('button:disabled')) return true;
     const detailButton = event.target.closest('[data-order-detail]');
     if (detailButton) { openOrderDetail(findOrderById(detailButton.getAttribute('data-order-detail'))); return true; }
     const payButton = event.target.closest('[data-order-pay]');
@@ -3243,6 +3251,12 @@ import { api } from './api.js';
 
   function handleModalClick(event) {
     if (performOrderAction(event)) return;
+    if (event.target.closest('[data-pay-later]')) {
+      state.orderFilter = 'PENDING_PAYMENT';
+      closeModal();
+      openOrdersPage();
+      return;
+    }
     if (event.target.closest('[data-close-modal]')) { closeModal(); return; }
     const favorite = event.target.closest('[data-fav]');
     if (favorite) { event.preventDefault(); toggleFavorite(favorite.getAttribute('data-fav')); return; }
@@ -3296,6 +3310,12 @@ import { api } from './api.js';
   /* ------------------------------------------------------------------ */
 
   function boot() {
+    window.addEventListener('storage', function (event) {
+      if (event.key !== STORAGE.orders) return;
+      syncLocalOrders();
+      renderOrdersPreview();
+      if (!$('#ordersView').hidden) renderOrdersPage();
+    });
     syncInitialInputs();
     updateAllDateUi();
     syncGuestUi();
