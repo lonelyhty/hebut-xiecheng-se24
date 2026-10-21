@@ -449,7 +449,8 @@
     const source = normalizeCity(from);
     const target = normalizeCity(to);
     if (!source || !target || source === target) return [];
-    const rnd = makeRng(hashString('T' + source + '>' + target + '|' + (date || '')));
+    const dateKey = date || '';
+    const rnd = makeRng(hashString('T' + source + '>' + target + '|' + dateKey));
     const results = [];
     const types = ['G', 'G', 'D', 'G', 'D', 'G'];
     for (let i = 0; i < 6; i += 1) {
@@ -459,12 +460,20 @@
       const dep = pad2(Math.min(depHour, 22)) + ':' + pad2(depMinute);
       const durationMin = (type === 'G' ? 210 : 280) + Math.floor(rnd() * 150);
       const arrival = addMinutes(dep, durationMin);
+      const fromStation = STATIONS[source] || source + '站';
+      const toStation = STATIONS[target] || target + '站';
       results.push({
-        id: 'T-' + source + '-' + target + '-' + i,
+        id: 'T-' + source + '-' + target + '-' + dateKey + '-' + i,
         no: type + (100 + Math.floor(rnd() * 900)),
         type: type === 'G' ? '高铁' : '动车',
-        from: STATIONS[source] || source + '站',
-        to: STATIONS[target] || target + '站',
+        typeCode: type,
+        fromCity: source,
+        toCity: target,
+        date: dateKey,
+        from: fromStation,
+        to: toStation,
+        fromStation: fromStation,
+        toStation: toStation,
         dep: dep,
         arr: arrival.time,
         extraDay: arrival.extraDay,

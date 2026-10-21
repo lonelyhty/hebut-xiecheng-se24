@@ -330,3 +330,4 @@
 .flight-route-shortcuts button { border: 1px solid rgba(255,255,255,.26); background: rgba(255,255,255,.14); color: #fff; border-radius: 12px; height: 22px; padding: 0 9px; font-size: 10px; }
 .flight-route-shortcuts button:hover { background: rgba(255,255,255,.25); border-color: rgba(255,255,255,.5); }
 @media (max-width: 680px) { .flight-route-shortcuts { gap: 5px; } .flight-route-shortcuts button { font-size: 9px; padding: 0 7px; } }
+.order-type-icon.is-train { background: #eaf8f2; color: #15966b; }

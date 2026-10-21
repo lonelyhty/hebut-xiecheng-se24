@@ -16,12 +16,16 @@
 | 6 | 登录补全与跨模态恢复 | `ev_625223a07903a1c53a7408c7f624c84524d2497387bec0dedf84bb9bc96d39ad` | [login-to-booking.png](screenshots/login-to-booking.png) | 未登录点击预订 → 登录 → 自动回到含乘机人姓名/证件号的订票表单 |
 | 7 | 机票完整生命周期 | `ev_89e3f3c76e4638944d71a8810d26c1c9e1a960a2aa24f6261cc7ddfd43242703` | [boarding-pass.png](screenshots/boarding-pass.png) | 搜索 → 选航班 → 填乘机人 → 下单扣库存 → 支付出票（票号/PNR）→ 30 排选座 → 登机牌 |
 | 8 | 酒店预订 | `ev_bcb238ff89490bea3bf3182ef8a14f775e4400e62ceff29153087bcad1bed409` | [hotel-payment.png](screenshots/hotel-payment.png) | 酒店搜索 → 详情 → 房型 → 下单 → 支付 |
-| 9 | 门票预订 | `ev_ad3f19188ca0211ed525ea4da9ad5e91f00b29566e27157c935124bdf6d6ed48` | [ticket-payment.png](screenshots/ticket-payment.png) | 门票搜索 → 详情 → 下单 → 支付 |
-| 10 | 行程规划 | `ev_aa5b5e4723d9ea3eea405d92fa218a3e170bb3aa14b728b121623d6b2272be05` | [itinerary-planner.png](screenshots/itinerary-planner.png) | AI 行程助手调用后端生成 3 日行程 |
-| 11 | 订单管理页 | `ev_4fd90a5c9f3cd6eb44c10ab50ce8676eb2191f88afc6ce10a216722ba557ff80` | [orders.png](screenshots/orders.png) | 3 个不同状态订单；机票订单显示乘机人、PNR、票号、座位与登机口 |
-| 12 | 选择新城市并搜索 | `ev_d35fcbb24dad0088fa6e75e780e9d5bd5f6f14ce2fb4e6d2ae925df65236d238` | [city-select.png](screenshots/city-select.png) | 通过完整城市选择器选择兰州 → 返回表单 → 搜索到兰州→北京航班 |
+| 9 | 酒店房量扣减 | `ev_6eb0c04d0f929f82bde15a2bda63368bc0ae2d2b8c2a4e015960a87147d672b4` | [hotel-inventory.png](screenshots/hotel-inventory.png) | 下单后关闭支付，重新打开酒店详情，房型剩余量减少；释放逻辑见 API 测试 |
+| 10 | 门票预订 | `ev_ad3f19188ca0211ed525ea4da9ad5e91f00b29566e27157c935124bdf6d6ed48` | [ticket-payment.png](screenshots/ticket-payment.png) | 门票搜索 → 详情 → 下单 → 支付 |
+| 11 | 行程规划 | `ev_aa5b5e4723d9ea3eea405d92fa218a3e170bb3aa14b728b121623d6b2272be05` | [itinerary-planner.png](screenshots/itinerary-planner.png) | AI 行程助手调用后端生成 3 日行程 |
+| 12 | 订单管理页 | `ev_4fd90a5c9f3cd6eb44c10ab50ce8676eb2191f88afc6ce10a216722ba557ff80` | [orders.png](screenshots/orders.png) | 3 个不同状态订单；机票订单显示乘机人、PNR、票号、座位与登机口 |
+| 13 | 选择新城市并搜索 | `ev_d35fcbb24dad0088fa6e75e780e9d5bd5f6f14ce2fb4e6d2ae925df65236d238` | [city-select.png](screenshots/city-select.png) | 通过完整城市选择器选择兰州 → 返回表单 → 搜索到兰州→北京航班 |
+| 14 | 火车票支付并查看已支付 | `ev_2c011714e388a50edd28bcec2764ba58fff0cb0df9be4d4af91b250e68e5f6bd` | [train-paid.png](screenshots/train-paid.png) | 火车票下单、支付后，在“已支付”标签显示 |
+| 15 | 已支付标签（酒店 + 火车票） | `ev_9fa80ba9cdf3a38b04c50db44c5c7afc68456e265e349b08702c3328b013efbf` | [orders-paid.png](screenshots/orders-paid.png) | 已支付酒店与火车票订单同时显示在“已支付”标签 |
+| 16 | 已值机标签（机票） | `ev_0ab061107fee6fbb2779caec3534911bf10c4de9a1d4fcf4038e7b14928de93f` | [orders-checked-in.png](screenshots/orders-checked-in.png) | 已值机机票订单显示在“已值机”标签 |
 
-场景规模：机票完整流程 16 步、酒店/门票各 15 步、登录补全 12 步、筛选 8 步、城市选择器 7 步、选择并搜索 10 步，其余 2–5 步；全部执行完成，无失败步骤。
+场景规模：机票完整流程/火车票流程各 16 步、酒店/门票各 15 步、酒店房量扣减 16 步、登录补全 12 步、筛选 8 步、城市选择器 7 步、选择并搜索 10 步，其余 2–6 步；全部执行完成，无失败步骤。
 
 每个原始证据 JSON 包含：
 

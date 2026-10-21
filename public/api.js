@@ -113,6 +113,10 @@ export const api = {
     return request(`/hotels/search?${query(params)}`, { auth: false });
   },
 
+  searchTrains(params) {
+    return request(`/trains/search?${query(params)}`, { auth: false });
+  },
+
   searchAttractions(params) {
     return request(`/attractions/search?${query(params)}`, { auth: false });
   },
