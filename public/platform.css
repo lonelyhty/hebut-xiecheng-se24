@@ -56,9 +56,11 @@
   display: flex; gap: 3px; width: fit-content; max-width: 100%; overflow-x: auto;
   background: #fff; border: 1px solid #edf1f7; border-radius: 11px; padding: 5px; margin-top: 13px;
 }
-.order-status-tabs button { border: 0; background: transparent; color: #64738a; font-size: 12px; padding: 7px 14px; border-radius: 7px; white-space: nowrap; }
+.order-status-tabs button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #64738a; font-size: 12px; padding: 7px 14px; border-radius: 7px; white-space: nowrap; }
 .order-status-tabs button:hover { color: var(--blue); }
 .order-status-tabs button.is-active { color: var(--blue); background: #edf7ff; font-weight: 600; }
+.order-tab-count { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: #f1f5fa; color: #7d8ba0; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+.order-status-tabs button.is-active .order-tab-count { background: #d8ecff; color: var(--blue); }
 .orders-page-layout { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
 .orders-page-main { min-width: 0; }
 .orders-page-list { display: flex; flex-direction: column; gap: 12px; }
@@ -122,6 +124,17 @@
 .payment-amount > strong em { font-style: normal; font-size: 15px; font-weight: 500; margin-right: 2px; }
 .payment-amount > small { font-size: 11px; color: #7c899b; }
 .payment-methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.order-confirm-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.order-confirm-title strong { flex: 1; min-width: 0; }
+.payment-order-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #fbfdff; border: 1px solid #eef4fb; font-size: 11px; color: #7a8799; }
+.payment-order-meta b { color: #3f5068; font-weight: 600; margin-left: 3px; }
+.booking-submit-row { flex-wrap: wrap; }
+.confirm-pop { position: fixed; inset: 0; z-index: 220; background: rgba(13, 27, 50, .5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.confirm-pop-card { width: min(420px, 100%); background: #fff; border-radius: 14px; padding: 22px 22px 18px; box-shadow: 0 24px 60px rgba(8, 22, 46, .3); }
+.confirm-pop-card h3 { font-size: 18px; color: #22324b; }
+.confirm-pop-card p { margin-top: 9px; font-size: 12px; line-height: 1.75; color: #6d7b90; }
+.confirm-pop-card p strong { color: #22324b; word-break: break-all; }
+.confirm-pop-actions { margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px; }
 .payment-method { display: flex; align-items: center; gap: 8px; padding: 9px; border: 1px solid #e4ebf4; border-radius: 9px; background: #fff; text-align: left; transition: border-color .15s, background .15s, box-shadow .15s; }
 .payment-method:hover { border-color: #afd8ff; }
 .payment-method.is-active { border-color: var(--blue); background: #f3faff; box-shadow: 0 0 0 3px rgba(0, 134, 246, .07); }

@@ -24,8 +24,10 @@
 | 14 | 火车票支付并查看已支付 | `ev_2c011714e388a50edd28bcec2764ba58fff0cb0df9be4d4af91b250e68e5f6bd` | [train-paid.png](screenshots/train-paid.png) | 火车票下单、支付后，在“已支付”标签显示 |
 | 15 | 已支付标签（酒店 + 火车票） | `ev_9fa80ba9cdf3a38b04c50db44c5c7afc68456e265e349b08702c3328b013efbf` | [orders-paid.png](screenshots/orders-paid.png) | 已支付酒店与火车票订单同时显示在“已支付”标签 |
 | 16 | 已值机标签（机票） | `ev_0ab061107fee6fbb2779caec3534911bf10c4de9a1d4fcf4038e7b14928de93f` | [orders-checked-in.png](screenshots/orders-checked-in.png) | 已值机机票订单显示在“已值机”标签 |
+| 17 | 提交订单后的确认支付页 | `ev_313924027212e5a75d73e0fe44620a6e0a684e246447f2fa202443cb62dfe8d7`（确认页）、`ev_3e5f196e6cc34523119f18e65602a48d10e67d13e3ae1c9a1edd0a9273beacc9`（稍后支付→待付款） | [order-confirm.png](screenshots/order-confirm.png)、[orders-pending.png](screenshots/orders-pending.png) | 提交订单后先展示订单号、乘机人、金额与支付截止时间；选择“稍后支付”后自动进入“待付款”标签，未支付订单可见 |
+| 18 | 支付页取消订单与二次确认 | `ev_8784c9d81e8bd35e117f6a914a37ff2b872faca356b02839f9949548b22c84ad`（取消确认层）、`ev_f4b7144f1e9dc47cb1aebf95057c265fda9c93e817ba3e213149ba09f5b6885b`（确认取消） | [cancel-confirm.png](screenshots/cancel-confirm.png)、[order-cancelled.png](screenshots/order-cancelled.png) | 确认支付页提供“取消订单”；二次确认后订单取消、占用库存释放，取消结果以 toast 提示 |
 
-场景规模：机票完整流程/火车票流程各 16 步、酒店/门票各 15 步、酒店房量扣减 16 步、登录补全 12 步、筛选 8 步、城市选择器 7 步、选择并搜索 10 步，其余 2–6 步；全部执行完成，无失败步骤。
+场景规模：机票完整流程/火车票流程各 16 步、酒店/门票各 15 步、酒店房量扣减 16 步、确认页 9 步、确认页→稍后支付→待付款 14 步、取消确认层 13 步、支付页取消与二次确认 17 步、登录补全 12 步、筛选 8 步、城市选择器 7 步、选择并搜索 10 步，其余 2–6 步；全部执行完成，无失败步骤。
 
 每个原始证据 JSON 包含：
 

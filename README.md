@@ -36,13 +36,13 @@ npm start
 - **酒店**：城市/日期/人数/星级/关键词搜索，价格与星级筛选，详情、房型与模拟下单；房型库存下单时扣减，取消或支付超时释放，详情实时显示剩余房量并禁止超卖。
 - **门票·活动**：城市、日期、关键词搜索，活动详情与模拟下单。
 - **火车票**：上海虹桥—北京南等本地模拟车次，已接入后端订单、支付与状态筛选。
-- **订单**：后端订单中心，状态筛选（待付款/已支付/已值机/已取消），订单详情与状态历史；机票、酒店、火车票、门票统一使用同一套状态字段。
-- **预订**：1–6 位乘机人，姓名与演示证件号由后端校验；创建订单时扣减余票，取消或超时自动释放。
-- **支付与出票**：本地 MockPay 沙箱，支付宝/微信/银行卡三种模拟方式；支付成功后生成模拟票号与 PNR，不产生真实扣款。
+- **订单**：后端订单中心，状态筛选（待付款/已支付/已值机/已取消）并显示各类数量；订单详情与状态历史；机票、酒店、火车票、门票统一使用同一套状态字段，未支付订单会出现在「待付款」。
+- **预订**：1–6 位乘机人，姓名与演示证件号由后端校验；创建订单时扣减余票，取消或超时自动释放。提交订单后先进入订单确认页，展示订单号、乘机人、金额与支付截止时间。
+- **支付与出票**：本地 MockPay 沙箱，支付宝/微信/银行卡三种模拟方式；支付成功后生成模拟票号与 PNR，不产生真实扣款。支付页与订单确认页均可直接取消订单，取消前要求二次确认，已支付订单执行模拟退款并释放库存。
 - **在线值机**：单人已支付机票订单，在起飞前 48 小时至 45 分钟窗口内选择 1–30 排 A–F 座位，生成登机口、登机时间、PNR、票号与可打印登机牌。
 - **行程规划**：后端按城市、天数、偏好生成逐日行程并联动同城酒店。
 - **多角色**：旅客与旅行社视角，旅行社可读取全部订单。
-- **降级**：后端不可用时，首页浏览与部分本地模拟流程仍可运行，并在页头显示「本地模式」。
+- **降级**：后端不可用时，首页浏览与部分本地模拟流程仍可运行，并在页头显示「本地模式」；此时创建的本地订单标记为「待付款（本地）」，可在待付款中查看或取消，但需连接后端后重新预订才能支付。
 
 ## 目录结构
 
@@ -81,7 +81,7 @@ REA 采样的原始场景与证据 JSON 保留在本地证据包中，不随公�
 - [架构与业务设计](docs/design.md)：角色用例、架构图、关键序列图、动态定价、推荐权重、订单状态机、外部模拟 API 集成方案与 API 契约。
 - [测试报告](docs/test-report.md)：自动化测试结果、搜索性能数据、浏览器全流程验证范围与未验证项。
 - [REA 证据索引](docs/evidence.md)：浏览器验证场景、证据 ID 与最终截图。
-- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)
+- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [订单确认与支付](docs/screenshots/order-confirm.png) · [取消订单确认](docs/screenshots/cancel-confirm.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)
 
 ## 边界说明
 

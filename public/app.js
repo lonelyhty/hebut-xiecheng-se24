@@ -592,25 +592,43 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     return svgIcon('ticket');
   }
 
+  function orderTabForStatus(status) {
+    if (status === 'PENDING_PAYMENT' || status === '待付款') return 'PENDING_PAYMENT';
+    if (status === 'PAID' || status === 'CONFIRMED' || status === '已确认' || status === '已支付') return 'PAID';
+    if (status === 'CHECKED_IN' || status === '已值机' || status === 'COMPLETED') return 'CHECKED_IN';
+    if (status === 'CANCELLED' || status === 'EXPIRED' || status === '已取消') return 'CANCELLED';
+    return 'all';
+  }
+
   function orderMatchesTab(order, filter) {
     if (filter === 'all') return true;
-    const status = order.status;
-    if (filter === 'PENDING_PAYMENT') return status === 'PENDING_PAYMENT' || status === '待付款';
-    if (filter === 'PAID') return status === 'PAID' || status === 'CONFIRMED' || status === '已确认' || status === '已支付';
-    if (filter === 'CHECKED_IN') return status === 'CHECKED_IN' || status === '已值机';
-    if (filter === 'CANCELLED') return status === 'CANCELLED' || status === 'EXPIRED' || status === '已取消';
-    return status === filter;
+    return orderTabForStatus(order.status) === filter;
+  }
+
+  function isUnpaidOrder(order) {
+    return order.status === 'PENDING_PAYMENT' || order.status === '待付款';
+  }
+
+  function isPaidOrder(order) {
+    return order.status === 'PAID' || order.status === '已确认' || order.status === '已支付';
+  }
+
+  function isCancelledOrder(order) {
+    return order.status === 'CANCELLED' || order.status === 'EXPIRED' || order.status === '已取消';
   }
 
   function orderActionButtons(order) {
     const actions = [];
     const status = order.status;
+    const serverOrder = Boolean(order.userId);
     actions.push('<button class="secondary-button small" type="button" data-order-detail="' + esc(order.id) + '">查看详情</button>');
-    if (status === 'PENDING_PAYMENT') {
-      actions.push('<button class="primary-button small" type="button" data-order-pay="' + esc(order.id) + '">去支付</button>');
+    if (isUnpaidOrder(order)) {
+      if (status === 'PENDING_PAYMENT') {
+        actions.push('<button class="primary-button small" type="button" data-order-pay="' + esc(order.id) + '">去支付</button>');
+      }
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
-    } else if (status === 'PAID') {
-      if (order.userId && order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1)) {
+    } else if (isPaidOrder(order)) {
+      if (serverOrder && order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1)) {
         actions.push('<button class="primary-button small" type="button" data-order-checkin="' + esc(order.id) + '">在线值机</button>');
       }
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
@@ -656,8 +674,16 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         : '后端未启动，当前显示浏览器本地的演示订单';
     }
     $('#agencyScopeBadge').hidden = !(state.apiOnline && state.user && state.user.role === 'agency');
+    const tabCounts = { all: state.orders.length, PENDING_PAYMENT: 0, PAID: 0, CHECKED_IN: 0, CANCELLED: 0 };
+    state.orders.forEach(function (order) {
+      const key = orderTabForStatus(order.status);
+      if (key !== 'all') tabCounts[key] += 1;
+    });
     $$('#orderStatusTabs [data-order-tab]').forEach(function (tab) {
-      tab.classList.toggle('is-active', tab.getAttribute('data-order-tab') === state.orderFilter);
+      const key = tab.getAttribute('data-order-tab');
+      tab.classList.toggle('is-active', key === state.orderFilter);
+      const counter = $('[data-tab-count]', tab);
+      if (counter) counter.textContent = String(tabCounts[key] || 0);
     });
     if (state.apiOnline && !state.user) {
       $('#ordersPageList').innerHTML = '<div class="orders-login-prompt">' + svgIcon('user') +
@@ -1798,8 +1824,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         state.bookingDraft = null;
         if (result.order.type === 'hotel') adjustHotelCacheAvailability(result.order, -1);
         upsertOrder(result.order);
-        toast('订单已创建，请完成模拟支付');
-        openPaymentModal(result.order);
+        toast('订单已提交，请确认支付');
+        openOrderConfirmation(result.order);
         return;
       } catch (error) {
         if (submit) { submit.disabled = false; submit.textContent = '提交订单'; }
@@ -1819,8 +1845,65 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     if (order.type === 'hotel') adjustHotelCacheAvailability(order, -1);
     upsertOrder(order);
     state.bookingDraft = null;
-    openPaymentModal(order);
-    toast('订单已创建，状态为待付款');
+    toast('订单已提交，请确认支付');
+    openOrderConfirmation(order);
+  }
+
+  function orderPaymentDeadline(order) {
+    const created = new Date(order.createdAt).getTime();
+    if (!Number.isFinite(created)) return '';
+    return new Date(created + 15 * 60 * 1000).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
+  }
+
+  function openPendingOrders() {
+    state.orderFilter = 'PENDING_PAYMENT';
+    openOrdersPage();
+  }
+
+  function openOrderConfirmation(order) {
+    if (!order) return;
+    const deadline = orderPaymentDeadline(order);
+    const passengers = Array.isArray(order.passengers) && order.passengers.length
+      ? order.passengers.map(function (passenger) { return esc(passenger.name); }).join('、')
+      : '';
+    const contact = order.contact ? order.contact.name + ' · ' + maskPhone(order.contact.phone) : '';
+    const html = '<div id="orderConfirmRoot">' +
+      '<div class="modal-head"><h2 id="modalTitle">订单提交成功</h2><p>请确认订单信息，并在 15 分钟内完成支付。</p></div>' +
+      '<div class="modal-body">' +
+        '<div class="booking-summary order-confirm-card">' +
+          '<div class="order-confirm-title"><strong>' + esc(order.title) + '</strong><span class="order-status-pill is-pending">待付款</span></div>' +
+          '<p>' + esc(order.subtitle || order.kindLabel || '订单') + '</p>' +
+          '<div class="booking-lines">' +
+            '<div class="booking-line"><span>订单号</span><strong class="mono">' + esc(order.id) + '</strong></div>' +
+            '<div class="booking-line"><span>出行日期</span><strong>' + esc(order.dateLabel || '—') + '</strong></div>' +
+            '<div class="booking-line"><span>人数 / 房间</span><strong>' + esc(order.guestLabel || '—') + '</strong></div>' +
+            (passengers ? '<div class="booking-line"><span>乘机人</span><strong>' + passengers + '</strong></div>' : '') +
+            (contact ? '<div class="booking-line"><span>联系人</span><strong>' + esc(contact) + '</strong></div>' : '') +
+            (deadline ? '<div class="booking-line"><span>支付截止</span><strong>' + esc(deadline) + '（本地时间）</strong></div>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="payment-note">' + svgIcon('shield') + '<span>库存已为订单锁定。超时未支付订单会自动失效并释放机票或房量；如需修改，可先取消订单再重新预订。</span></div>' +
+        '<div class="booking-total"><span>应付金额<br><small style="font-size:10px;color:#9aa6b6">本地模拟支付 · MockPay Sandbox</small></span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
+        '<div class="booking-submit-row">' +
+          '<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>' +
+          '<button class="secondary-button" type="button" data-confirm-later>稍后支付</button>' +
+          '<button class="primary-button" type="button" data-confirm-pay>确认支付</button>' +
+        '</div>' +
+        '<p class="booking-hint">选择「稍后支付」后，可在「我的订单 → 待付款」中继续支付或取消。</p>' +
+      '</div>' +
+    '</div>';
+    const modal = openModal(html);
+    const root = $('#orderConfirmRoot', modal);
+    root.addEventListener('click', function (event) {
+      if (event.target.closest('[data-confirm-pay]')) {
+        openPaymentModal(findOrderById(order.id) || order);
+        return;
+      }
+      if (event.target.closest('[data-confirm-later]')) {
+        closeModal();
+        openPendingOrders();
+      }
+    });
   }
 
   function openPaymentModal(order) {
@@ -1834,6 +1917,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       toast('该订单当前状态为「' + (order.statusLabel || order.status) + '」，无需支付');
       return;
     }
+    const deadline = orderPaymentDeadline(order);
     let method = 'alipay';
     const methods = [
       { key: 'alipay', label: '支付宝', note: '模拟网关', className: 'alipay' },
@@ -1841,17 +1925,22 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       { key: 'card', label: '银行卡', note: '模拟收单', className: 'card' }
     ];
     const html = '<div id="paymentRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">订单支付</h2><p>当前状态：待付款 · 请选择立即支付、稍后付款或取消订单。</p></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">确认支付</h2><p>演示支付由本地 MockPay 沙箱处理，不会跳转真实支付平台。</p></div>' +
       '<div class="modal-body">' +
-        '<div class="payment-amount"><span>应付金额</span><strong><em>¥</em>' + money(order.total) + '</strong><small>' + esc(order.title) + '</small></div>' +
+        '<div class="payment-amount"><span>应付金额</span><strong><em>¥</em>' + money(order.total) + '</strong><small>' + esc(order.title) + ' · ' + esc(order.id) + '</small></div>' +
+        '<div class="payment-order-meta"><span>出行日期 <b>' + esc(order.dateLabel || '—') + '</b></span><span>人数/房间 <b>' + esc(order.guestLabel || '—') + '</b></span>' + (deadline ? '<span>支付截止 <b>' + esc(deadline) + '</b></span>' : '') + '</div>' +
         '<div class="form-field" style="margin-top:16px"><label>支付方式</label><div class="payment-methods">' +
           methods.map(function (item) {
             return '<button type="button" class="payment-method' + (item.key === method ? ' is-active' : '') + ' is-' + item.className + '" data-pay-method="' + item.key + '"><span class="payment-method-icon">' + (item.key === 'alipay' ? '支' : item.key === 'wechat' ? '微' : '卡') + '</span><span><strong>' + item.label + '</strong><small>' + item.note + '</small></span></button>';
           }).join('') +
         '</div></div>' +
-        '<div class="payment-note">' + svgIcon('shield') + '<span>待付款订单保留 15 分钟。稍后付款可在“我的订单 → 待付款”中继续支付或取消。付款截止：' + esc(formatDateTime(new Date(new Date(order.createdAt).getTime() + 15 * 60000))) + '</span></div>' +
+        '<div class="payment-note">' + svgIcon('shield') + '<span>支付成功后订单进入「已支付」状态；机票订单可继续在线值机。超时未支付的订单会自动失效并释放库存。</span></div>' +
         '<div class="booking-total"><span>本地模拟支付<br><small style="font-size:10px;color:#9aa6b6">MockPay Sandbox · CNY</small></span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
-        '<div class="booking-submit-row payment-actions"><button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button><button class="secondary-button" type="button" data-pay-later>稍后付款</button><button class="primary-button" type="button" id="payNow">立即支付</button></div>' +
+        '<div class="booking-submit-row">' +
+          '<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>' +
+          '<button class="secondary-button" type="button" data-pay-later>稍后支付</button>' +
+          '<button class="primary-button" type="button" id="payNow">立即支付</button>' +
+        '</div>' +
         '<p class="booking-hint">本演示不会采集真实支付凭据，也不会产生真实扣款。' + (order.userId ? '订单由本地后端保存。' : '此订单保存在当前浏览器中。') + '</p>' +
       '</div>' +
     '</div>';
@@ -1890,6 +1979,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
 
   function openPaymentSuccess(order) {
     const canCheckin = order.userId && order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1);
+    state.orderFilter = 'PAID';
     openModal('<div class="modal-body"><div class="success-modal">' +
       '<div class="success-icon">' + svgIcon('check') + '</div>' +
       '<h2 id="modalTitle">支付成功</h2>' +
@@ -1904,9 +1994,51 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     toast('支付成功，订单状态已更新');
   }
 
-  async function cancelOrder(id) {
+  function closeCancelPrompt() {
+    const prompt = $('#cancelPrompt');
+    if (prompt) prompt.remove();
+  }
+
+  function askCancelOrder(order) {
+    closeCancelPrompt();
+    const paid = isPaidOrder(order);
+    const prompt = document.createElement('div');
+    prompt.id = 'cancelPrompt';
+    prompt.className = 'confirm-pop';
+    prompt.setAttribute('role', 'dialog');
+    prompt.setAttribute('aria-modal', 'true');
+    prompt.innerHTML = '<div class="confirm-pop-card">' +
+      '<h3>取消订单</h3>' +
+      '<p>确定取消订单 <strong>' + esc(order.id) + '</strong> 吗？' + (paid ? '已支付订单将执行本地模拟退款，' : '') + '已占用的库存会立即释放，取消后不可恢复。</p>' +
+      '<div class="confirm-pop-actions"><button class="secondary-button" type="button" data-cancel-no>再想想</button><button class="danger-button" type="button" data-cancel-yes>确认取消</button></div>' +
+    '</div>';
+    document.body.appendChild(prompt);
+    prompt.addEventListener('click', function (event) {
+      if (event.target === prompt || event.target.closest('[data-cancel-no]')) {
+        prompt.remove();
+        return;
+      }
+      if (event.target.closest('[data-cancel-yes]')) {
+        prompt.remove();
+        cancelOrder(order.id, { confirmed: true });
+      }
+    });
+    const confirmButton = $('[data-cancel-yes]', prompt);
+    if (confirmButton) confirmButton.focus();
+  }
+
+  async function cancelOrder(id, options) {
     const order = findOrderById(id);
     if (!order) return;
+    if (isCancelledOrder(order)) {
+      toast('该订单已取消或已失效');
+      return;
+    }
+    const opts = options || {};
+    if (!opts.confirmed) {
+      askCancelOrder(order);
+      return;
+    }
     const isServerOrder = Boolean(order.userId);
     if (isServerOrder) {
       if (!state.apiOnline) { toast('后端订单需要连接本地服务后取消，请先运行 npm start'); return; }
@@ -2828,6 +2960,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   }
 
   function closeModal() {
+    closeCancelPrompt();
     const overlay = $('#overlay');
     if (!overlay || overlay.hidden) return;
     overlay.hidden = true;
@@ -3271,6 +3404,10 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     });
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape') return;
+      if ($('#cancelPrompt')) {
+        closeCancelPrompt();
+        return;
+      }
       if (state.modalOpen) {
         closeModal();
       } else {
