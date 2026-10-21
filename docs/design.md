@@ -75,7 +75,7 @@ flowchart TB
     CHECKIN["checkin.mjs<br/>30 排选座 / 值机窗口 / 登机牌"]
     ITIN["itinerary.mjs<br/>行程规划"]
     PAYMENT["payments.mjs<br/>MockPay 适配器"]
-    STORE["store.mjs<br/>JSON 持久化 / 航班库存"]
+    STORE["store.mjs<br/>JSON 持久化 / 航班库存 / 酒店房量"]
   end
   DATA[("data/store.json")]
   UI --> API_CLIENT
@@ -115,7 +115,7 @@ flowchart TB
 - **共享目录模块**：服务端与浏览器使用同一份模拟目录，避免前端展示与后端校验出现航线、机场、价格或库存不一致。航班目录覆盖 32 个主要城市，共 992 个方向组合，每个日期生成 5 个航班。
 - **服务端权威**：订单金额、报价有效性、乘机人信息、余票、状态转换与座位占用均在后端重新校验；前端只负责展示与发起动作。
 - **报价锁定**：动态票价按 5 分钟价格桶变化，因此搜索返回 10 分钟有效的 `quoteId`；下单只接受有效且未使用的报价。
-- **库存扣减**：创建机票订单时从本地航班库存中同步扣减席位；取消与超时释放。单进程 Node 事件循环保证“校验 + 扣减 + 写订单”在同一个同步段完成。
+- **库存扣减**：创建机票订单时扣减航班座位，创建酒店订单时扣减对应房型的房间库存；取消与超时释放。单进程 Node 事件循环保证“校验 + 扣减 + 写订单”在同一个同步段完成。
 - **单进程适用**：报价保存在内存，订单与库存保存在 JSON 文件，适合演示与单机测试；生产应替换为数据库事务与分布式缓存。
 
 ## 4. 关键业务事件流
@@ -339,10 +339,11 @@ stateDiagram-v2
 | GET | `/api/auth/me` | 是 | 获取当前用户与角色 |
 | POST | `/api/auth/logout` | 是 | 注销会话 |
 | GET | `/api/flights/search` | 否 | `from,to,date,passengers(1–6),cabin`；可带 `airline,departWindow,maxPrice`；返回 5 个航班、`calendar`、`quoteId` 与推荐 |
+| GET | `/api/trains/search` | 否 | `from,to,date,passengers,type`；返回本地模拟车次 |
 | GET | `/api/hotels/search` | 否 | `city,checkin,checkout[,keyword,level]` |
 | GET | `/api/attractions/search` | 否 | `city,date[,keyword]` |
 | POST | `/api/itineraries` | 否 | `{city, days, preferences}` |
-| POST | `/api/orders` | 是 | `type=flight` 用 `quoteId + passengers[{name,document}] + contact`；`hotel` 用 `hotelId/roomIndex/checkin/checkout`；`ticket` 用 `ticketId/city/date` |
+| POST | `/api/orders` | 是 | `type=flight` 用 `quoteId + passengers[{name,document}] + contact`；`hotel` 用 `hotelId/roomIndex/checkin/checkout/rooms` 并扣减房量；`train` 用 `trainId/fromCity/toCity/date/passengers`；`ticket` 用 `ticketId/city/date` |
 | GET | `/api/orders` | 是 | 当前用户订单；旅行社可加 `?scope=all` |
 | GET | `/api/orders/:id` | 是 | 订单详情（所有者或旅行社） |
 | POST | `/api/orders/:id/pay` | 是 | `{method: alipay|wechat|card}` |
@@ -363,9 +364,10 @@ stateDiagram-v2
 
 - `users`：`id, phone, name, role, createdAt`
 - `sessions`：`token, userId, role, createdAt, expiresAt`（7 天）
-- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, contact, passengers, items, details, payment, ticketing, checkin, history, createdAt, updatedAt`
+- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, contact, passengers, items, details, payment, ticketing, checkin, history, createdAt, updatedAt`；`type` 支持 `flight/hotel/ticket/train`
 - `quotes`：仅内存保存，`id, flight, unitPrice, passengers, expiresAt, usedAt`，10 分钟 TTL
 - `inventory`：按航班 ID 保存 `{ totalSeats, reservedSeats }`，用于余票校验与释放
+- `hotelInventory`：按「酒店 ID → 房型索引」保存 `{ totalRooms, reservedRooms }`，用于酒店房量校验与释放
 
 持久化策略：
 
@@ -381,7 +383,7 @@ stateDiagram-v2
 - 订单读取与操作进行所有者/旅行社权限校验；
 - 金额由后端计算，前端不传总额；
 - 乘机人数、姓名与演示证件号由后端校验；
-- 航班库存在创建订单时扣减，取消/超时释放，避免超卖；
+- 航班座位与酒店房量在创建订单时扣减，取消/超时释放，避免超卖；
 - 值机座位可用性由后端校验，且限制单人订单与值机窗口；
 - 请求体大小限制 1 MB；
 - 静态文件路径防目录穿越；

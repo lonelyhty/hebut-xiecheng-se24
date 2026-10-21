@@ -572,7 +572,12 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       CHECKED_IN: 'checked',
       CANCELLED: 'cancelled',
       EXPIRED: 'cancelled',
-      COMPLETED: 'checked'
+      COMPLETED: 'checked',
+      '待付款': 'pending',
+      '已支付': 'paid',
+      '已确认': 'paid',
+      '已值机': 'checked',
+      '已取消': 'cancelled'
     }[status] || 'local';
   }
 
@@ -583,7 +588,18 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function orderTypeIcon(order) {
     if (order.type === 'flight') return svgIcon('plane');
     if (order.type === 'hotel') return svgIcon('bed');
+    if (order.type === 'train') return svgIcon('train');
     return svgIcon('ticket');
+  }
+
+  function orderMatchesTab(order, filter) {
+    if (filter === 'all') return true;
+    const status = order.status;
+    if (filter === 'PENDING_PAYMENT') return status === 'PENDING_PAYMENT' || status === '待付款';
+    if (filter === 'PAID') return status === 'PAID' || status === 'CONFIRMED' || status === '已确认' || status === '已支付';
+    if (filter === 'CHECKED_IN') return status === 'CHECKED_IN' || status === '已值机';
+    if (filter === 'CANCELLED') return status === 'CANCELLED' || status === 'EXPIRED' || status === '已取消';
+    return status === filter;
   }
 
   function orderActionButtons(order) {
@@ -655,10 +671,10 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       return;
     }
     const filtered = state.orders.filter(function (order) {
-      return state.orderFilter === 'all' || order.status === state.orderFilter;
+      return orderMatchesTab(order, state.orderFilter);
     });
     if (!filtered.length) {
-      $('#ordersPageList').innerHTML = '<div class="empty-state">' + svgIcon('briefcase') + '<h3>暂无匹配订单</h3><p>完成一次机票、酒店或门票预订后，订单会出现在这里。</p><button class="secondary-button" type="button" data-orders-home>去首页预订</button></div>';
+      $('#ordersPageList').innerHTML = '<div class="empty-state">' + svgIcon('briefcase') + '<h3>暂无匹配订单</h3><p>完成一次机票、酒店、火车票或门票预订后，订单会出现在这里。</p><button class="secondary-button" type="button" data-orders-home>去首页预订</button></div>';
       return;
     }
     $('#ordersPageList').innerHTML = filtered.map(orderCardHtml).join('');
@@ -964,7 +980,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     renderCurrentResults();
   }
 
-  function performTrainSearch() {
+  async function performTrainSearch() {
     const from = DATA.normalizeCity($('#trainFromInput').value);
     const to = DATA.normalizeCity($('#trainToInput').value);
     if (!from || !to) { toast('请填写出发与到达城市'); return; }
@@ -983,15 +999,42 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       type: state.train.type,
       passengers: state.train.passengers
     };
-    let trains = DATA.getTrains(from, to, dateKey(state.train.date));
-    if (state.train.type !== 'all') {
-      trains = trains.filter(function (train) { return train.type === state.train.type; });
-    }
-    state.resultData = trains;
     state.filters = defaultFilters('train');
-    showResultsView();
-    renderCurrentResults();
+    state.resultData = [];
+    const seq = ++state.searchSeq;
+    showResultsLoading(from + ' → ' + to + ' 火车票', formatFull(state.train.date) + ' · ' + state.train.passengers + '位成人', '正在读取本地车次…');
     closeMobileNav();
+    try {
+      if (state.apiOnline) {
+        const result = await api.searchTrains({
+          from: from,
+          to: to,
+          date: dateKey(state.train.date),
+          passengers: state.train.passengers,
+          type: state.train.type
+        });
+        if (seq !== state.searchSeq) return;
+        state.resultData = result.results || [];
+        if (result.query && result.query.date) state.resultParams.date = parseDateKey(result.query.date);
+      } else {
+        state.resultData = DATA.getTrains(from, to, dateKey(state.train.date));
+        if (state.train.type !== 'all') {
+          state.resultData = state.resultData.filter(function (train) { return train.typeCode === state.train.type; });
+        }
+      }
+    } catch (error) {
+      if (seq !== state.searchSeq) return;
+      if (error.code === 'NETWORK_ERROR') {
+        state.apiOnline = false;
+        setApiStatus('offline', '本地模式', '后端搜索失败，已切换到本地模拟数据');
+      }
+      state.resultData = DATA.getTrains(from, to, dateKey(state.train.date));
+      if (state.train.type !== 'all') {
+        state.resultData = state.resultData.filter(function (train) { return train.typeCode === state.train.type; });
+      }
+      toast('火车票接口失败，已回退本地模拟数据：' + error.message);
+    }
+    renderCurrentResults();
   }
 
   async function performTicketSearch() {
@@ -1439,6 +1482,24 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   /* Hotel detail and booking                                            */
   /* ------------------------------------------------------------------ */
 
+  function adjustHotelCacheAvailability(order, delta) {
+    if (!order || order.type !== 'hotel' || !order.details || order.details.roomIndex == null) return;
+    const hotelId = order.details.hotelId;
+    const roomIndex = Number(order.details.roomIndex);
+    const count = Number(order.details.rooms) || 1;
+    const hotels = [DATA.getHotelById(hotelId)];
+    if (Array.isArray(state.resultData)) {
+      const current = state.resultData.find(function (item) { return item.id === hotelId; });
+      if (current) hotels.push(current);
+    }
+    hotels.forEach(function (entry) {
+      if (!entry || !Array.isArray(entry.rooms) || !entry.rooms[roomIndex]) return;
+      const room = entry.rooms[roomIndex];
+      room.left = Math.max(0, (Number(room.left) || 0) + delta * count);
+      room.soldOut = room.left <= 0;
+    });
+  }
+
   function openHotelDetail(hotel) {
     if (!hotel) return;
     state.ticketContext = null;
@@ -1452,10 +1513,12 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="detail-tag-line">' + hotel.tags.map(function (tag, index) { return '<span class="detail-tag' + (index === 0 ? ' is-accent' : '') + '">' + esc(tag) + '</span>'; }).join('') + '</div>' +
       '<div class="detail-section"><h3>酒店设施</h3><div class="amenity-grid">' + hotel.amenities.map(function (item) { return '<div class="amenity-item">' + svgIcon(item[0]) + '<span>' + esc(item[1]) + '</span></div>'; }).join('') + '</div></div>' +
       '<div class="detail-section"><h3>房型与价格</h3><div class="room-list">' + hotel.rooms.map(function (room, index) {
+        const left = Math.max(0, Number(room.left) || 0);
+        const soldOut = left <= 0;
         return '<div class="room-card"><div class="room-info"><strong>' + esc(room.name) + '</strong><p>' + esc(room.bed) + ' · ' + esc(room.size) + ' · ' + esc(room.breakfast) + ' · <span class="room-cancel">' + esc(room.cancel) + '</span></p></div>' +
-          '<div class="room-price-block"><div class="room-price"><strong><em>¥</em>' + money(room.price) + '</strong><span class="' + (room.left <= 2 ? 'is-warning' : '') + '">仅剩 ' + room.left + ' 间</span></div><button class="primary-button" type="button" data-book-room="' + esc(hotel.id) + '" data-room-index="' + index + '">预订</button></div></div>';
+          '<div class="room-price-block"><div class="room-price"><strong><em>¥</em>' + money(room.price) + '</strong><span class="' + (left <= 2 && !soldOut ? 'is-warning' : '') + '">' + (soldOut ? '已满房' : '仅剩 ' + left + ' 间') + '</span></div><button class="primary-button" type="button" data-book-room="' + esc(hotel.id) + '" data-room-index="' + index + '"' + (soldOut ? ' disabled' : '') + '>' + (soldOut ? '已满' : '预订') + '</button></div></div>';
       }).join('') + '</div></div>' +
-      '<div class="detail-note">本地演示：酒店名称、图片、评分、房态和价格均为模拟数据；预订后可在“我的订单”中查看或取消。</div>' +
+      '<div class="detail-note">本地演示：酒店名称、图片、评分、房态和价格均为模拟数据。房量会在下单时扣减，取消订单或支付超时后释放。</div>' +
     '</div>';
     openModal(html, { className: 'modal-wide' });
   }
@@ -1511,6 +1574,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         hotelId: hotel.id,
         hotelName: hotel.name,
         room: room.name,
+        roomIndex: hotel.rooms.indexOf(room),
         checkin: dateKey(state.search.checkin),
         checkout: dateKey(state.search.checkout),
         nights: nights,
@@ -1584,6 +1648,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       dateLabel: formatFull(date) + ' ' + train.dep,
       guestLabel: passengers + '位成人',
       meta: [train.no, '直达'],
+      passengerCount: passengers,
+      apiPayload: {
+        type: 'train',
+        trainId: train.id,
+        fromCity: train.fromCity || state.train.from,
+        toCity: train.toCity || state.train.to,
+        date: train.date || dateKey(date),
+        passengers: passengers
+      },
       details: {
         trainNo: train.no,
         from: train.from,
@@ -1723,6 +1796,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         if (draft.kind === 'flight') payload.passengers = passengers;
         const result = await api.createOrder(payload);
         state.bookingDraft = null;
+        if (result.order.type === 'hotel') adjustHotelCacheAvailability(result.order, -1);
         upsertOrder(result.order);
         toast('订单已创建，请完成模拟支付');
         openPaymentModal(result.order);
@@ -1742,6 +1816,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       }
     }
     const order = createLocalOrder(draft, contact, passengers);
+    if (order.type === 'hotel') adjustHotelCacheAvailability(order, -1);
     upsertOrder(order);
     state.bookingDraft = null;
     openPaymentModal(order);
@@ -1837,6 +1912,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (!state.apiOnline) { toast('后端订单需要连接本地服务后取消，请先运行 npm start'); return; }
       try {
         const result = await api.cancelOrder(id);
+        if (result.order.type === 'hotel') adjustHotelCacheAvailability(result.order, 1);
         upsertOrder(result.order);
         if (!$('#ordersView').hidden) renderOrdersPage();
         if (state.modalOpen) closeModal();
@@ -1847,7 +1923,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       return;
     }
     try {
-      updateLocalOrder(id, 'cancel');
+      const cancelled = updateLocalOrder(id, 'cancel');
+      if (cancelled.type === 'hotel') adjustHotelCacheAvailability(cancelled, 1);
     } catch (error) { toast(error.message); return; }
     if (state.modalOpen) closeModal();
     toast('订单已取消（本地模拟）');
