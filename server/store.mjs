@@ -7,6 +7,7 @@ const EMPTY_DATA = {
   users: [],
   sessions: [],
   orders: [],
+  bargains: [],
   inventory: {},
   hotelInventory: {}
 };
@@ -33,6 +34,7 @@ export class Store {
         users: Array.isArray(parsed.users) ? parsed.users : [],
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
         orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+        bargains: Array.isArray(parsed.bargains) ? parsed.bargains : [],
         inventory: parsed.inventory && typeof parsed.inventory === 'object' ? parsed.inventory : {},
         hotelInventory: parsed.hotelInventory && typeof parsed.hotelInventory === 'object' ? parsed.hotelInventory : {}
       };
@@ -209,6 +211,33 @@ export class Store {
 
   getOrdersForUser(userId) {
     return this.data.orders.filter((order) => order.userId === userId);
+  }
+
+  findBargainByToken(token) {
+    if (!token) return null;
+    return this.data.bargains.find((bargain) => bargain.token === token) || null;
+  }
+
+  findBargainByOrderId(orderId) {
+    return this.data.bargains.find((bargain) => bargain.orderId === orderId) || null;
+  }
+
+  listBargains() {
+    return this.data.bargains.slice();
+  }
+
+  async insertBargain(bargain) {
+    this.data.bargains.push(bargain);
+    await this.save();
+    return bargain;
+  }
+
+  async replaceBargain(bargain) {
+    const index = this.data.bargains.findIndex((item) => item.id === bargain.id);
+    if (index === -1) throw new Error(`砍价活动 ${bargain.id} 不存在`);
+    this.data.bargains[index] = bargain;
+    await this.save();
+    return bargain;
   }
 }
 

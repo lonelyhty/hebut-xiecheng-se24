@@ -344,3 +344,76 @@
 .flight-route-shortcuts button:hover { background: rgba(255,255,255,.25); border-color: rgba(255,255,255,.5); }
 @media (max-width: 680px) { .flight-route-shortcuts { gap: 5px; } .flight-route-shortcuts button { font-size: 9px; padding: 0 7px; } }
 .order-type-icon.is-train { background: #eaf8f2; color: #15966b; }
+
+/* Friend bargain wheel */
+.bargain-button { border: 1px solid #ffd8b0; background: #fff8ef; color: #d97706; border-radius: 7px; height: 32px; padding: 0 12px; font-size: 12px; font-weight: 600; }
+.bargain-button:hover { background: #fff2e2; }
+.bargain-entry { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 14px; padding: 12px 14px; border: 1px solid #ffe0b8; border-radius: 11px; background: linear-gradient(110deg, #fff8ee, #fff4f8); text-align: left; cursor: pointer; }
+.bargain-entry:hover { box-shadow: 0 6px 18px rgba(224, 128, 24, .12); }
+.bargain-entry-icon { width: 38px; height: 38px; border-radius: 12px; background: #fff0d9; color: #e28a16; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.bargain-entry-icon svg { width: 20px; height: 20px; }
+.bargain-entry-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bargain-entry-copy strong { font-size: 13px; color: #7a4b0f; }
+.bargain-entry-copy small { font-size: 10px; color: #b07a3d; }
+.bargain-entry-action { font-size: 12px; font-weight: 700; color: #e07a0c; white-space: nowrap; }
+.bargain-text { color: #d97706 !important; }
+.order-original-total { font-size: 10px; color: #a0aabb; text-decoration: line-through; }
+.payment-discount { margin-top: 9px; padding: 9px 11px; border-radius: 8px; background: #fff8ec; border: 1px solid #ffe3bb; font-size: 11px; color: #9a6a2a; display: flex; align-items: center; gap: 8px; }
+.payment-discount strong { color: #e07a0c; font-size: 13px; }
+.payment-discount span { margin-left: auto; color: #a0aabb; text-decoration: line-through; }
+.modal.modal-bargain { width: min(760px, 100%); }
+.bargain-hero { display: flex; align-items: center; gap: 26px; padding: 8px 4px 4px; }
+.bargain-wheel-wrap { position: relative; width: 230px; height: 230px; flex: 0 0 auto; }
+.bargain-wheel { position: absolute; inset: 10px; border-radius: 50%; box-shadow: inset 0 0 0 7px #fff7ea, 0 10px 26px rgba(197, 120, 30, .18); }
+.bargain-wheel::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .7); }
+.bargain-wheel-pointer { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 18px solid #e07a0c; z-index: 3; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .15)); }
+.bargain-wheel-hub { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 78px; height: 78px; border-radius: 50%; background: #fff; border: 4px solid #ffe4bd; box-shadow: 0 4px 14px rgba(197, 120, 30, .2); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; }
+.bargain-wheel-hub small { font-size: 9px; color: #b58a52; }
+.bargain-wheel-hub strong { font-size: 19px; color: #d97706; }
+.bargain-seg-label { position: absolute; left: 50%; top: 50%; margin: -7px 0 0 -19px; width: 38px; text-align: center; font-size: 10px; font-weight: 700; color: #8a5a1c; z-index: 1; }
+.bargain-summary { flex: 1; min-width: 0; }
+.bargain-status-pill { display: inline-flex; height: 22px; align-items: center; padding: 0 9px; border-radius: 11px; font-size: 10px; font-weight: 600; background: #fff3df; color: #b06b0c; border: 1px solid #ffe1ae; }
+.bargain-status-pill.is-succeeded, .bargain-status-pill.is-claimed { background: #e9f9f1; color: #11815e; border-color: #c8edde; }
+.bargain-status-pill.is-expired, .bargain-status-pill.is-cancelled { background: #f3f5f8; color: #7d8798; border-color: #e7ebf1; }
+.bargain-discount-line { margin-top: 8px; display: flex; align-items: baseline; gap: 4px; color: #7a8799; font-size: 11px; }
+.bargain-discount-line strong { font-size: 30px; color: #e07a0c; line-height: 1.05; }
+.bargain-discount-line small { color: #a5afbd; }
+.bargain-progress-track { height: 9px; margin-top: 9px; border-radius: 5px; background: #fff0dc; overflow: hidden; }
+.bargain-progress-track i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, #ffb340, #ff7a45); transition: width .5s ease; }
+.bargain-remaining { margin-top: 8px; font-size: 11px; color: #7a8799; }
+.bargain-remaining strong { color: #e07a0c; }
+.bargain-order-line { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #f0e1cd; display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: #6d7b90; }
+.bargain-order-line strong { color: #e07a0c; }
+.bargain-helper-count { margin-top: 6px; font-size: 10px; color: #a0aabb; }
+.bargain-helper-count strong { color: #d97706; }
+.bargain-result { margin-top: 14px; padding: 11px 13px; border-radius: 9px; background: #fff9f0; border: 1px solid #ffe8c8; font-size: 11px; line-height: 1.65; color: #8a6a3a; min-height: 42px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.bargain-spinning { color: #d97706; }
+.bargain-win { font-weight: 700; color: #c05f06; }
+.bargain-near { color: #b06b0c; }
+.bargain-closed { color: #7d8798; }
+.bargain-coupon { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 9px; background: #fff1e2; border: 1px dashed #ffc98a; }
+.bargain-coupon > span { font-size: 17px; font-weight: 800; color: #e07a0c; }
+.bargain-coupon strong { display: block; font-size: 12px; color: #7a4b0f; }
+.bargain-coupon small { display: block; font-size: 10px; color: #a6773e; margin-top: 2px; }
+.bargain-actions { margin-top: 13px; display: flex; gap: 8px; }
+.bargain-actions .primary-button, .bargain-actions .secondary-button { flex: 1; }
+.bargain-link-row { margin-top: 10px; display: flex; gap: 7px; }
+.bargain-link-row input { flex: 1; min-width: 0; height: 32px; border: 1px solid #e6edf6; border-radius: 7px; background: #f9fbfe; color: #6d7b90; font-size: 10px; padding: 0 9px; }
+.bargain-helpers { margin-top: 14px; display: flex; gap: 7px; flex-wrap: wrap; }
+.bargain-helper { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px 5px 5px; border-radius: 18px; background: #f8fafc; border: 1px solid #eef2f7; }
+.bargain-helper i { width: 22px; height: 22px; border-radius: 50%; background: #fff0dc; color: #c27811; font-size: 10px; font-style: normal; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.bargain-helper span { display: flex; flex-direction: column; line-height: 1.2; }
+.bargain-helper strong { font-size: 10px; color: #4c5a6e; }
+.bargain-helper small { font-size: 9px; color: #9aa6b6; }
+.bargain-helper.is-lucky { background: #fff7e2; border-color: #ffe1a1; }
+.bargain-helper.is-lucky i { background: #ffe4a8; color: #a56b09; }
+.bargain-rule { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #eef1f6; font-size: 10px; line-height: 1.7; color: #a0aabb; }
+@media (max-width: 720px) {
+  .bargain-hero { flex-direction: column; gap: 14px; }
+  .bargain-wheel-wrap { width: 210px; height: 210px; }
+  .bargain-actions { flex-wrap: wrap; }
+  .bargain-actions .primary-button, .bargain-actions .secondary-button { flex: 1 1 100%; }
+}
+.bargain-skip { display: block; margin: 9px auto 0; border: 0; background: transparent; color: #9aa6b6; font-size: 10px; text-decoration: underline; text-underline-offset: 2px; }
+.bargain-skip:hover { color: #d97706; }
+.bargain-remaining.is-done { color: #11815e; font-weight: 600; }

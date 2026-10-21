@@ -194,7 +194,6 @@ sequenceDiagram
 ```
 
 ### 4.3 旅行社查看全部订单
-
 ```mermaid
 sequenceDiagram
   autonumber
@@ -215,6 +214,39 @@ sequenceDiagram
   API-->>Web: scope=all + 全部订单
   Note over API,Web: 旅客请求 scope=all 返回 403
 ```
+
+### 4.4 好友助力砍价
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Owner as 发起人
+  actor Friend as 好友
+  participant Web as 浏览器
+  participant API as 砍价 API
+  participant Store as JSON 存储
+  participant Orders as 订单
+
+  Owner->>API: POST /api/orders/:id/bargain
+  API->>Store: 创建砍价会话（发起人先砍一刀）
+  API-->>Owner: token、已砍金额、目标 ¥99
+  Owner->>Friend: 分享链接 ?bargain=token
+  Friend->>API: GET /api/bargains/:token（登录）
+  API-->>Friend: 活动进度与 canCut
+  Friend->>API: POST /api/bargains/:token/cut
+  API->>API: 校验非发起人、每人一次、未失效
+  API->>API: 按剩余金额选择衰减档位并记录助力
+  alt 达到隐藏成功阈值
+    API->>Orders: 订单立减 ¥99 并写入砍价摘要
+    API-->>Friend: 砍成 + 更新后的订单
+  else 仍差 0.01
+    API-->>Friend: 只砍 0.01，进度停滞
+  end
+  Owner->>API: POST /api/orders/:id/pay
+  API->>API: 按折后金额收款并关闭砍价会话
+```
+
+规则：仅机票/酒店待付款订单可发起；发起人先砍一刀；好友每人限一次；金额按剩余金额分档衰减，接近目标时只掉 ¥0.01，最后 0.01 会停滞；隐藏成功阈值 18–35 人，另有小概率锦鲤提前成功；取消、支付或超时后活动关闭。演示接口 `/simulate` 仅发起人可用，用于单机体验。
 
 ## 5. 动态票价与智能推荐
 
@@ -348,6 +380,11 @@ stateDiagram-v2
 | GET | `/api/orders/:id` | 是 | 订单详情（所有者或旅行社） |
 | POST | `/api/orders/:id/pay` | 是 | `{method: alipay|wechat|card}` |
 | POST | `/api/orders/:id/cancel` | 是 | 待付款或已支付可取消 |
+| POST | `/api/orders/:id/bargain` | 是 | 发起或获取该订单的砍价会话，发起人自动先砍一刀 |
+| GET | `/api/orders/:id/bargain` | 是 | 订单的砍价进度与状态 |
+| GET | `/api/bargains/:token` | 是 | 分享链接详情、进度与当前用户是否可砍 |
+| POST | `/api/bargains/:token/cut` | 是 | 好友助力；发起人不能自砍，每位用户限一次 |
+| POST | `/api/bargains/:token/simulate` | 是 | 演示模拟好友，仅发起人，`{count:1–10}` |
 | GET | `/api/orders/:id/seats` | 是 | 已支付/已值机机票订单的座位图 |
 | POST | `/api/orders/:id/checkin` | 是 | `{seat}`；仅已支付、单人多票；窗口 48h–45min；座位 1–30 排 A–F |
 | GET | `/api/orders/:id/boarding-pass` | 是 | 已值机订单的登机牌数据 |
@@ -364,7 +401,8 @@ stateDiagram-v2
 
 - `users`：`id, phone, name, role, createdAt`
 - `sessions`：`token, userId, role, createdAt, expiresAt`（7 天）
-- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, contact, passengers, items, details, payment, ticketing, checkin, history, createdAt, updatedAt`；`type` 支持 `flight/hotel/ticket/train`
+- `orders`：`id, userId, type, status, statusLabel, title, dateLabel, guestLabel, total, originalTotal?, bargain?, contact, passengers, items, details, payment, ticketing, checkin, history, createdAt, updatedAt`；`type` 支持 `flight/hotel/ticket/train`
+- `bargains`：`id, token, orderId, ownerId, status, target, discount, remaining, helperCount, successAt（仅服务端）, helpers[], ownerCut, coupon, createdAt, expiresAt`；与待付款订单同生命周期
 - `quotes`：仅内存保存，`id, flight, unitPrice, passengers, expiresAt, usedAt`，10 分钟 TTL
 - `inventory`：按航班 ID 保存 `{ totalSeats, reservedSeats }`，用于余票校验与释放
 - `hotelInventory`：按「酒店 ID → 房型索引」保存 `{ totalRooms, reservedRooms }`，用于酒店房量校验与释放

@@ -14,6 +14,18 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     favorites: 'octrip.favorites.v1'
   };
 
+  const BARGAIN_SEGMENTS = [
+    { label: '¥8.88', color: '#ffe3bd' },
+    { label: '¥5.20', color: '#ffd3e1' },
+    { label: '¥3.00', color: '#d9ecff' },
+    { label: '¥1.00', color: '#ffefc2' },
+    { label: '¥0.50', color: '#d8f5e7' },
+    { label: '¥0.10', color: '#e6e2ff' },
+    { label: '¥0.05', color: '#ffe0d2' },
+    { label: '¥0.01', color: '#dff3ff' },
+    { label: '锦鲤', color: '#ffc9d9' }
+  ];
+
   function readStore(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
@@ -165,6 +177,10 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     ticketContext: null,
     plannerResult: null,
     authTimer: null,
+    pendingBargainToken: new URLSearchParams(window.location.search).get('bargain') || '',
+    bargain: null,
+    bargainRotation: 0,
+    bargainBusy: false,
     favorites: new Set(Array.isArray(storedFavorites) ? storedFavorites : []),
     orders: Array.isArray(storedOrders) ? storedOrders.filter(function (order) { return !order.userId; }).map(normalizeLocalOrder) : [],
     user: storedUser && typeof storedUser === 'object' && storedUser.phone ? storedUser : null,
@@ -457,6 +473,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       setApiStatus('offline', '本地模式', '后端未启动，已切换到本地模拟数据');
       renderOrdersPreview();
     }
+    maybeOpenPendingBargain();
   }
 
   async function refreshOrders(options) {
@@ -623,6 +640,12 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     const serverOrder = Boolean(order.userId);
     actions.push('<button class="secondary-button small" type="button" data-order-detail="' + esc(order.id) + '">查看详情</button>');
     if (isUnpaidOrder(order)) {
+      if (serverOrder && status === 'PENDING_PAYMENT' && (order.type === 'flight' || order.type === 'hotel')) {
+        const label = order.bargain && order.bargain.discount
+          ? '已砍 ¥' + money(order.bargain.discount)
+          : '邀好友砍价';
+        actions.push('<button class="bargain-button small" type="button" data-order-bargain="' + esc(order.id) + '">' + label + '</button>');
+      }
       if (status === 'PENDING_PAYMENT') {
         actions.push('<button class="primary-button small" type="button" data-order-pay="' + esc(order.id) + '">去支付</button>');
       }
@@ -656,8 +679,11 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           (order.payment ? '<span><b>支付方式</b>' + esc(order.payment.methodLabel || order.payment.method) + '</span>' : '') +
           (order.ticketing ? '<span><b>票号</b>' + esc(order.ticketing.ticketNumber) + ' · PNR ' + esc(order.ticketing.pnr) + '</span>' : '') +
           (order.checkin ? '<span><b>座位</b>' + esc(order.checkin.seat) + ' · ' + esc(order.checkin.gate) + ' 登机口</span>' : '') +
+          (order.originalTotal && order.originalTotal > order.total ? '<span><b>砍价优惠</b>-' + money(order.originalTotal - order.total) + '</span>' : '') +
         '</div>' +
-        '<div class="order-page-total"><span>订单合计</span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
+        '<div class="order-page-total"><span>订单合计</span><strong><em>¥</em>' + money(order.total) + '</strong>' +
+          (order.originalTotal && order.originalTotal > order.total ? '<span class="order-original-total">原价 ¥' + money(order.originalTotal) + '</span>' : '') +
+        '</div>' +
       '</div>' +
       '<div class="order-page-foot"><span>创建于 ' + esc(formatDateTime(order.createdAt)) + '</span><div class="order-page-actions">' + orderActionButtons(order) + '</div></div>' +
     '</article>';
@@ -730,6 +756,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           '<div><span>联系人</span><strong>' + esc(order.contact ? order.contact.name : '—') + '</strong></div>' +
           '<div><span>手机号</span><strong>' + esc(order.contact ? maskPhone(order.contact.phone) : '—') + '</strong></div>' +
           '<div><span>订单金额</span><strong class="blue">¥' + money(order.total) + '</strong></div>' +
+          (order.originalTotal && order.originalTotal > order.total
+            ? '<div><span>砍价优惠</span><strong class="blue">-¥' + money(order.originalTotal - order.total) + '（原价 ¥' + money(order.originalTotal) + '）</strong></div>'
+            : '') +
           '<div><span>创建时间</span><strong>' + esc(formatDateTime(order.createdAt)) + '</strong></div>' +
           (payment ? '<div><span>支付方式</span><strong>' + esc(payment.methodLabel || payment.method) + '</strong></div>' : '') +
           (payment ? '<div><span>支付流水</span><strong class="mono">' + esc(payment.transactionId) + '</strong></div>' : '') +
@@ -1867,6 +1896,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       ? order.passengers.map(function (passenger) { return esc(passenger.name); }).join('、')
       : '';
     const contact = order.contact ? order.contact.name + ' · ' + maskPhone(order.contact.phone) : '';
+    const discount = order.originalTotal && order.originalTotal > order.total ? order.originalTotal - order.total : 0;
+    const canBargain = Boolean(order.userId) && (order.type === 'flight' || order.type === 'hotel');
     const html = '<div id="orderConfirmRoot">' +
       '<div class="modal-head"><h2 id="modalTitle">订单提交成功</h2><p>请确认订单信息，并在 15 分钟内完成支付。</p></div>' +
       '<div class="modal-body">' +
@@ -1879,11 +1910,19 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
             '<div class="booking-line"><span>人数 / 房间</span><strong>' + esc(order.guestLabel || '—') + '</strong></div>' +
             (passengers ? '<div class="booking-line"><span>乘机人</span><strong>' + passengers + '</strong></div>' : '') +
             (contact ? '<div class="booking-line"><span>联系人</span><strong>' + esc(contact) + '</strong></div>' : '') +
+            (discount ? '<div class="booking-line"><span>砍价优惠</span><strong class="bargain-text">-¥' + money(discount) + '（原价 ¥' + money(order.originalTotal) + '）</strong></div>' : '') +
             (deadline ? '<div class="booking-line"><span>支付截止</span><strong>' + esc(deadline) + '（本地时间）</strong></div>' : '') +
           '</div>' +
         '</div>' +
+        (canBargain
+          ? '<button class="bargain-entry" type="button" data-order-bargain="' + esc(order.id) + '">' +
+              '<span class="bargain-entry-icon">' + svgIcon('sparkle') + '</span>' +
+              '<span class="bargain-entry-copy"><strong>' + (discount ? '已减 ¥' + money(discount) + '，还能继续砍' : '邀好友砍一刀，最多减 ¥99') + '</strong><small>拼多多式助力：越到后面越难砍，最后只差 0.01</small></span>' +
+              '<span class="bargain-entry-action">去砍价</span>' +
+            '</button>'
+          : '') +
         '<div class="payment-note">' + svgIcon('shield') + '<span>库存已为订单锁定。超时未支付订单会自动失效并释放机票或房量；如需修改，可先取消订单再重新预订。</span></div>' +
-        '<div class="booking-total"><span>应付金额<br><small style="font-size:10px;color:#9aa6b6">本地模拟支付 · MockPay Sandbox</small></span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
+        '<div class="booking-total"><span>应付金额<br><small style="font-size:10px;color:#9aa6b6">' + (discount ? '已用好友助力优惠 ¥' + money(discount) : '本地模拟支付 · MockPay Sandbox') + '</small></span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
         '<div class="booking-submit-row">' +
           '<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>' +
           '<button class="secondary-button" type="button" data-confirm-later>稍后支付</button>' +
@@ -1918,6 +1957,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       return;
     }
     const deadline = orderPaymentDeadline(order);
+    const discount = order.originalTotal && order.originalTotal > order.total ? order.originalTotal - order.total : 0;
     let method = 'alipay';
     const methods = [
       { key: 'alipay', label: '支付宝', note: '模拟网关', className: 'alipay' },
@@ -1928,6 +1968,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="modal-head"><h2 id="modalTitle">确认支付</h2><p>演示支付由本地 MockPay 沙箱处理，不会跳转真实支付平台。</p></div>' +
       '<div class="modal-body">' +
         '<div class="payment-amount"><span>应付金额</span><strong><em>¥</em>' + money(order.total) + '</strong><small>' + esc(order.title) + ' · ' + esc(order.id) + '</small></div>' +
+        (discount ? '<div class="payment-discount">好友助力已减 <strong>-¥' + money(discount) + '</strong><span>原价 ¥' + money(order.originalTotal) + '</span></div>' : '') +
         '<div class="payment-order-meta"><span>出行日期 <b>' + esc(order.dateLabel || '—') + '</b></span><span>人数/房间 <b>' + esc(order.guestLabel || '—') + '</b></span>' + (deadline ? '<span>支付截止 <b>' + esc(deadline) + '</b></span>' : '') + '</div>' +
         '<div class="form-field" style="margin-top:16px"><label>支付方式</label><div class="payment-methods">' +
           methods.map(function (item) {
@@ -1992,6 +2033,374 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '</div>' +
     '</div></div>');
     toast('支付成功，订单状态已更新');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Friend bargain wheel                                                */
+  /* ------------------------------------------------------------------ */
+
+  function bargainLinkFor(token) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('bargain', token);
+    return url.toString();
+  }
+
+  function bargainWheelHtml(bargain) {
+    const step = 360 / BARGAIN_SEGMENTS.length;
+    const gradient = BARGAIN_SEGMENTS.map(function (segment, index) {
+      return segment.color + ' ' + (index * step) + 'deg ' + ((index + 1) * step) + 'deg';
+    }).join(', ');
+    const labels = BARGAIN_SEGMENTS.map(function (segment, index) {
+      return '<span class="bargain-seg-label" style="transform: rotate(' + (index * step) + 'deg) translateY(-91px)">' + segment.label + '</span>';
+    }).join('');
+    return '<div class="bargain-wheel-wrap">' +
+      '<div class="bargain-wheel-pointer" aria-hidden="true"></div>' +
+      '<div class="bargain-wheel" id="bargainWheel" style="background: conic-gradient(from -20deg, ' + gradient + ')">' + labels + '</div>' +
+      '<span class="bargain-wheel-hub"><small>目标</small><strong>¥' + money(bargain.target) + '</strong></span>' +
+    '</div>';
+  }
+
+  function bargainSummaryHtml(bargain, order) {
+    const active = bargain.status === 'ACTIVE';
+    const done = bargain.remaining <= 0;
+    const priceLabel = done ? '现价' : active ? '砍成后' : '原价';
+    const priceValue = done ? order.total : active ? Math.max(0, order.total - bargain.target) : order.total;
+    return '<div class="bargain-status-pill is-' + bargain.status.toLowerCase() + '">' + esc(bargain.statusLabel) + '</div>' +
+      '<div class="bargain-discount-line"><span>已砍</span><strong>¥' + money(bargain.discount) + '</strong><small> / 目标 ¥' + money(bargain.target) + '</small></div>' +
+      '<div class="bargain-progress-track"><i style="width:' + Math.round(bargain.progress * 100) + '%"></i></div>' +
+      '<p class="bargain-remaining' + (done ? ' is-done' : '') + '">' +
+        (done ? '已砍成，优惠券已到账' : '还差 <strong>¥' + money(bargain.remaining) + '</strong>' + (active && bargain.remaining <= 0.01 ? '，最后 0.01 最考验友情' : '')) +
+      '</p>' +
+      '<div class="bargain-order-line">' + esc(order.title) + '<strong>' + priceLabel + ' ¥' + money(priceValue) + '</strong></div>' +
+      '<div class="bargain-helper-count">已有 <strong>' + (bargain.helperCount + 1) + '</strong> 人助力</div>';
+  }
+
+  function bargainHelpersHtml(bargain) {
+    const entries = [];
+    if (bargain.ownerCut) {
+      entries.push({ name: (bargain.ownerName || '发起人') + '（发起）', amount: bargain.ownerCut.amount, success: false, stalled: false });
+    }
+    (bargain.helpers || []).forEach(function (helper) { entries.push(helper); });
+    if (!entries.length) return '';
+    return entries.slice(-12).reverse().map(function (helper) {
+      const initial = String(helper.name || '友').slice(0, 1);
+      const amountText = helper.success ? '砍成 ¥' + money(bargain.target) : helper.stalled ? '又差 0.01' : '砍 ¥' + money(helper.amount);
+      return '<span class="bargain-helper' + (helper.success ? ' is-lucky' : '') + '"><i>' + esc(initial) + '</i><span><strong>' + esc(helper.name || '好友') + '</strong><small>' + amountText + '</small></span></span>';
+    }).join('');
+  }
+
+  function bargainActionsHtml(bargain, order, mode) {
+    if (bargain.status === 'SUCCEEDED') {
+      if (mode === 'owner') {
+        return '<button class="primary-button" type="button" data-bargain-pay>去支付 ¥' + money(order.total) + '</button>' +
+          '<button class="secondary-button" type="button" data-bargain-orders>查看待付款</button>';
+      }
+      return '<button class="secondary-button" type="button" data-close-modal>知道了</button>';
+    }
+    if (bargain.status === 'CLAIMED') {
+      return mode === 'owner'
+        ? '<button class="secondary-button" type="button" data-bargain-orders>查看订单</button>'
+        : '<button class="secondary-button" type="button" data-close-modal>知道了</button>';
+    }
+    if (bargain.status !== 'ACTIVE') {
+      return mode === 'owner'
+        ? '<button class="secondary-button" type="button" data-bargain-orders>返回订单</button>'
+        : '<button class="secondary-button" type="button" data-close-modal>关闭</button>';
+    }
+    if (mode === 'owner') {
+      return '<button class="primary-button" type="button" data-bargain-simulate data-count="1">模拟 1 位好友</button>' +
+        '<button class="secondary-button" type="button" data-bargain-simulate data-count="10">模拟 10 位好友</button>';
+    }
+    if (bargain.canCut) {
+      return '<button class="primary-button" type="button" data-bargain-cut>帮 TA 砍一刀</button>';
+    }
+    if (bargain.alreadyHelped) {
+      return '<button class="secondary-button" type="button" disabled>已助力，等 TA 砍成</button>';
+    }
+    return '';
+  }
+
+  function bargainResultHtml(bargain, cuts, mode) {
+    if (bargain.status === 'SUCCEEDED' || bargain.status === 'CLAIMED') {
+      return '<div class="bargain-win">恭喜！好友这一刀砍成了。</div>' +
+        '<div class="bargain-coupon"><span>¥' + money(bargain.target) + '</span><div><strong>好友助力券已到账</strong><small>' +
+        (bargain.status === 'CLAIMED' ? '本单优惠已使用' : '支付时自动抵扣，本单立减 ¥' + money(bargain.discount)) +
+        '</small></div></div>';
+    }
+    if (bargain.status === 'EXPIRED' || bargain.status === 'CANCELLED') {
+      return '<div class="bargain-closed">' + esc(bargain.closeReason || '砍价活动已结束') + '</div>';
+    }
+    const last = cuts && cuts.length ? cuts[cuts.length - 1] : null;
+    if (!last) {
+      return mode === 'owner'
+        ? '邀请好友帮你砍，越到后面掉得越少。'
+        : '点击下方按钮，帮 TA 砍掉一刀。';
+    }
+    if (last.success) return '「' + esc(last.name) + '」这一刀砍成，¥' + money(bargain.target) + ' 券已到账。';
+    if (last.stalled) return '「' + esc(last.name) + '」砍掉 ¥0.01，但还差 ¥0.01…继续拉人也不一定成功。';
+    if (cuts.length > 1) {
+      const sum = cuts.reduce(function (total, cut) { return total + (Number(cut.amount) || 0); }, 0);
+      return cuts.length + ' 位好友合力砍掉 ¥' + money(sum) + '，最后一位「' + esc(last.name) + '」砍了 ¥' + money(last.amount) + '。';
+    }
+    return '「' + esc(last.name) + '」帮你砍掉 ¥' + money(last.amount) + '。';
+  }
+
+  function bargainModalHtml(bargain, order, mode) {
+    const owner = mode === 'owner';
+    const link = bargainLinkFor(bargain.token);
+    return '<div id="bargainRoot" data-mode="' + mode + '">' +
+      '<div class="modal-head"><h2 id="modalTitle">' + (owner ? '好友助力 · 砍 ¥' + money(bargain.target) : '帮 TA 砍一刀') + '</h2><p>' +
+        (owner ? '把链接发给好友，每人一刀；越接近目标越难砍。' : '每位好友限砍一次，帮 TA 把价格砍下来。') + '</p></div>' +
+      '<div class="modal-body">' +
+        '<div class="bargain-hero">' +
+          bargainWheelHtml(bargain) +
+          '<div class="bargain-summary">' + bargainSummaryHtml(bargain, order) + '</div>' +
+        '</div>' +
+        '<div class="bargain-result" id="bargainResult">' + bargainResultHtml(bargain, [], mode) + '</div>' +
+        '<div class="bargain-actions" id="bargainActions">' + bargainActionsHtml(bargain, order, mode) + '</div>' +
+        (owner && bargain.status === 'ACTIVE'
+          ? '<button class="bargain-skip" type="button" data-bargain-pay>先不砍了，直接去支付</button>' +
+            '<button class="bargain-skip" type="button" data-bargain-simulate-many>演示：一次拉 50 位好友（必成）</button>'
+          : '') +
+        (owner && bargain.status === 'ACTIVE'
+          ? '<div class="bargain-link-row"><input id="bargainLink" readonly value="' + esc(link) + '" aria-label="邀请链接"><button class="secondary-button small" type="button" data-bargain-copy>复制</button></div>'
+          : '') +
+        '<div class="bargain-helpers" id="bargainHelpers">' + bargainHelpersHtml(bargain) + '</div>' +
+        '<p class="bargain-rule">演示玩法：每次助力随机砍 ¥0.01–¥8.88；越接近 ¥99 掉得越少，最后可能一直差 ¥0.01。每人限砍一次，活动随待付款订单 15 分钟失效。</p>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function bargainCutIndex(cut) {
+    if (cut && cut.success) return BARGAIN_SEGMENTS.length - 1;
+    const amount = Number(cut && cut.amount) || 0;
+    let best = 0;
+    let bestDiff = Infinity;
+    BARGAIN_SEGMENTS.slice(0, -1).forEach(function (segment, index) {
+      const parsed = Number(segment.label.replace(/[^\d.]/g, ''));
+      const diff = Math.abs(parsed - amount);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = index;
+      }
+    });
+    return best;
+  }
+
+  function spinBargainWheel(targetIndex, done) {
+    const wheel = $('#bargainWheel');
+    if (!wheel) {
+      done();
+      return;
+    }
+    const step = 360 / BARGAIN_SEGMENTS.length;
+    const current = state.bargainRotation;
+    const currentMod = ((current % 360) + 360) % 360;
+    const targetMod = ((360 - targetIndex * step) % 360 + 360) % 360;
+    const delta = ((targetMod - currentMod + 360) % 360) + 360 * 4;
+    state.bargainRotation = current + delta;
+    wheel.style.transition = 'transform 1.1s cubic-bezier(.15, .85, .2, 1)';
+    wheel.style.transform = 'rotate(' + state.bargainRotation + 'deg)';
+    window.setTimeout(done, 1140);
+  }
+
+  function updateBargainModal(bargain, order, mode, cuts) {
+    const root = $('#bargainRoot');
+    if (!root) return;
+    state.bargain = bargain;
+    const summary = $('.bargain-summary', root);
+    if (summary) summary.innerHTML = bargainSummaryHtml(bargain, order);
+    const result = $('#bargainResult', root);
+    if (result) result.innerHTML = bargainResultHtml(bargain, cuts || [], mode);
+    const actions = $('#bargainActions', root);
+    if (actions) actions.innerHTML = bargainActionsHtml(bargain, order, mode);
+    const helpers = $('#bargainHelpers', root);
+    if (helpers) helpers.innerHTML = bargainHelpersHtml(bargain);
+    if (bargain.status !== 'ACTIVE') {
+      $$('.bargain-skip', root).forEach(function (button) { button.remove(); });
+      const linkRow = $('.bargain-link-row', root);
+      if (linkRow) linkRow.remove();
+    }
+  }
+
+  function applyBargainResult(result, mode) {
+    const cuts = Array.isArray(result.cuts) ? result.cuts : (result.cut ? [result.cut] : []);
+    const lastCut = cuts[cuts.length - 1] || null;
+    state.bargain = result.bargain;
+    upsertOrder(result.order);
+    const root = $('#bargainRoot');
+    if (root) {
+      const resultBox = $('#bargainResult', root);
+      if (resultBox) resultBox.innerHTML = '<span class="bargain-spinning">好友正在下刀…</span>';
+      $$('button', root).forEach(function (button) { button.disabled = true; });
+    }
+    spinBargainWheel(lastCut ? bargainCutIndex(lastCut) : 0, function () {
+      updateBargainModal(result.bargain, result.order, mode, cuts);
+      if (result.bargain.status === 'SUCCEEDED') toast('砍价成功，¥' + money(result.bargain.target) + ' 券已到账');
+    });
+  }
+
+  async function refreshBargainAfterError(token) {
+    try {
+      const result = await api.getBargain(token);
+      state.bargain = result.bargain;
+      upsertOrder(result.order);
+      const mode = $('#bargainRoot') ? $('#bargainRoot').getAttribute('data-mode') : 'owner';
+      updateBargainModal(result.bargain, result.order, mode, []);
+    } catch (error) {
+      /* Keep the current modal state; the toast already explains the failure. */
+    }
+  }
+
+  function bindBargainEvents(root, mode) {
+    root.addEventListener('click', async function (event) {
+      if (event.target.closest('[data-bargain-copy]')) {
+        const link = bargainLinkFor(state.bargain.token);
+        try {
+          await navigator.clipboard.writeText(link);
+          toast('邀请链接已复制，发给好友帮你砍');
+        } catch (error) {
+          const input = $('#bargainLink');
+          if (input) {
+            input.focus();
+            input.select();
+          }
+          window.prompt('复制邀请链接发给好友', link);
+        }
+        return;
+      }
+      if (event.target.closest('[data-bargain-pay]')) {
+        const order = findOrderById(state.bargain.orderId);
+        if (order) openPaymentModal(order);
+        return;
+      }
+      if (event.target.closest('[data-bargain-orders]')) {
+        const order = findOrderById(state.bargain.orderId);
+        state.orderFilter = order && order.status === 'PENDING_PAYMENT' ? 'PENDING_PAYMENT' : 'all';
+        closeModal();
+        openOrdersPage();
+        return;
+      }
+      if (event.target.closest('[data-bargain-simulate-many]')) {
+        const button = event.target.closest('[data-bargain-simulate-many]');
+        $$('button', root).forEach(function (item) { item.disabled = true; });
+        button.textContent = '好友大军赶来中…';
+        try {
+          const allCuts = [];
+          let lastResult = null;
+          for (let round = 0; round < 5; round += 1) {
+            lastResult = await api.simulateBargain(state.bargain.token, 10);
+            if (Array.isArray(lastResult.cuts)) allCuts.push.apply(allCuts, lastResult.cuts);
+            if (lastResult.bargain.status !== 'ACTIVE') break;
+          }
+          if (lastResult) applyBargainResult({ ...lastResult, cuts: allCuts }, mode);
+        } catch (error) {
+          toast(error.message);
+          $$('button', root).forEach(function (item) { item.disabled = false; });
+          button.textContent = '演示：一次拉 50 位好友（必成）';
+          if (error.code === 'BARGAIN_CLOSED' || error.code === 'INVALID_ORDER_STATE') {
+            refreshBargainAfterError(state.bargain.token);
+          }
+        }
+        return;
+      }
+      const actionButton = event.target.closest('[data-bargain-simulate], [data-bargain-cut]');
+      if (!actionButton || actionButton.disabled) return;
+      const simulate = Boolean(event.target.closest('[data-bargain-simulate]'));
+      const simulateCount = simulate ? Math.max(1, Math.min(10, Number(actionButton.getAttribute('data-count')) || 1)) : 0;
+      const defaultLabel = actionButton.textContent;
+      $$('button', root).forEach(function (button) { button.disabled = true; });
+      actionButton.textContent = simulate ? (simulateCount === 1 ? '好友赶来中…' : '好友们赶来中…') : '正在帮砍…';
+      try {
+        const result = simulate
+          ? await api.simulateBargain(state.bargain.token, simulateCount)
+          : await api.cutBargain(state.bargain.token);
+        applyBargainResult(result, mode);
+      } catch (error) {
+        toast(error.message);
+        $$('button', root).forEach(function (button) { button.disabled = false; });
+        actionButton.textContent = defaultLabel;
+        if (error.code === 'BARGAIN_CLOSED' || error.code === 'INVALID_ORDER_STATE') {
+          refreshBargainAfterError(state.bargain.token);
+        }
+      }
+    });
+  }
+
+  function openBargainModalForSession(bargain, order, mode) {
+    state.bargain = bargain;
+    state.bargainRotation = 0;
+    const modal = openModal(bargainModalHtml(bargain, order, mode), { className: 'modal-bargain' });
+    const root = $('#bargainRoot', modal);
+    bindBargainEvents(root, mode);
+  }
+
+  async function openBargainModal(orderId) {
+    const order = findOrderById(orderId);
+    if (!order) return;
+    if (!state.apiOnline) {
+      toast('砍价需要本地后端，请先运行 npm start');
+      return;
+    }
+    if (!state.user || !api.hasToken()) {
+      state.pendingAuthAction = function () { openBargainModal(orderId); };
+      openAuth('login', { reason: '登录后邀好友砍价' });
+      return;
+    }
+    if (!order.userId) {
+      toast('本地离线订单不支持分享砍价');
+      return;
+    }
+    try {
+      const result = await api.createBargain(orderId);
+      upsertOrder(result.order);
+      openBargainModalForSession(result.bargain, result.order, 'owner');
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+
+  async function openBargainByToken(token) {
+    if (!state.apiOnline) {
+      toast('分享助力需要本地后端，请先运行 npm start');
+      return;
+    }
+    if (!state.user || !api.hasToken()) {
+      state.pendingAuthAction = function () { openBargainByToken(token); };
+      openAuth('login', { reason: '登录后帮好友砍一刀' });
+      return;
+    }
+    try {
+      const result = await api.getBargain(token);
+      upsertOrder(result.order);
+      openBargainModalForSession(result.bargain, result.order, result.bargain.isOwner ? 'owner' : 'helper');
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('bargain');
+        window.history.replaceState({}, '', url);
+      } catch (error) { /* URL cleanup is cosmetic. */ }
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+
+  function maybeOpenPendingBargain() {
+    const token = state.pendingBargainToken;
+    if (!token) return;
+    if (!state.apiOnline) {
+      state.pendingBargainToken = '';
+      toast('后端未启动，无法打开好友助力链接');
+      return;
+    }
+    if (!state.user || !api.hasToken()) {
+      state.pendingAuthAction = function () { openBargainByToken(token); };
+      openAuth('login', { reason: '登录后帮好友砍一刀' });
+      return;
+    }
+    state.pendingBargainToken = '';
+    openBargainByToken(token);
   }
 
   function closeCancelPrompt() {
@@ -2961,6 +3370,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
 
   function closeModal() {
     closeCancelPrompt();
+    state.bargain = null;
     const overlay = $('#overlay');
     if (!overlay || overlay.hidden) return;
     overlay.hidden = true;
@@ -3440,6 +3850,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     if (event.target.closest('button:disabled')) return true;
     const detailButton = event.target.closest('[data-order-detail]');
     if (detailButton) { openOrderDetail(findOrderById(detailButton.getAttribute('data-order-detail'))); return true; }
+    const bargainButton = event.target.closest('[data-order-bargain]');
+    if (bargainButton) { openBargainModal(bargainButton.getAttribute('data-order-bargain')); return true; }
     const payButton = event.target.closest('[data-order-pay]');
     if (payButton) { openPaymentModal(findOrderById(payButton.getAttribute('data-order-pay'))); return true; }
     const cancelButton = event.target.closest('[data-order-cancel]');
