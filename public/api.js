@@ -145,6 +145,26 @@ export const api = {
     return request(`/orders/${encodeURIComponent(orderId)}/cancel`, { method: 'POST' });
   },
 
+  createBargain(orderId) {
+    return request(`/orders/${encodeURIComponent(orderId)}/bargain`, { method: 'POST' });
+  },
+
+  getBargainForOrder(orderId) {
+    return request(`/orders/${encodeURIComponent(orderId)}/bargain`);
+  },
+
+  getBargain(token) {
+    return request(`/bargains/${encodeURIComponent(token)}`);
+  },
+
+  cutBargain(token) {
+    return request(`/bargains/${encodeURIComponent(token)}/cut`, { method: 'POST' });
+  },
+
+  simulateBargain(token, count) {
+    return request(`/bargains/${encodeURIComponent(token)}/simulate`, { method: 'POST', body: { count } });
+  },
+
   getSeats(orderId) {
     return request(`/orders/${encodeURIComponent(orderId)}/seats`);
   },

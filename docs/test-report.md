@@ -1,7 +1,7 @@
 # 测试报告
 
-- 测试日期：2026-10-20
-- 环境：Windows 10.0.26300 x64；Node.js v24.14.0；本地回环服务 `127.0.0.1:5180`
+- 测试日期：2026-10-21
+- 环境：Windows 10.0.26300 x64；Node.js v24.18.0；本地回环服务 `127.0.0.1:5180`
 - 自动化命令：`npm test`
 - 浏览器证据：REA 6.4.0 `capture-browser-scenario`，本机 Chrome，headless，视口 1440×1000，`zh-CN` / `Asia/Shanghai`
 - 数据：全新 `data/store.json`；订单与会话由测试和浏览器场景真实写入本地后端
@@ -9,10 +9,10 @@
 ## 1. 自动化测试结果
 
 ```
-tests 12
-pass 12
+tests 28
+pass 28
 fail 0
-duration_ms 334.7645
+duration_ms 317.8629
 ```
 
 | # | 测试 | 覆盖点 | 结果 |
@@ -29,6 +29,9 @@ duration_ms 334.7645
 | 10 | itinerary planner | 逐日行程、酒店与花费、城市/天数校验 | PASS |
 | 11 | in-process search performance | 400 次搜索的 p50/p95/p99 | PASS |
 | 12 | HTTP search performance | 40 次串行 HTTP 搜索的 p50/p95/p99 | PASS |
+| 13 | browser local orders | 本地订单创建即待付款、本地支付/取消状态机、模拟退款、15 分钟失效、旧状态归一化、跨标签页不覆盖 | PASS |
+| 14 | bargain wheel domain | 发起人自动砍价、好友限一次、金额衰减到 0.01 停滞、隐藏阈值成功、99 元封顶、失效与订单类型限制 | PASS |
+| 15 | bargain API | 创建砍价、发起人不能自砍、好友重复拒绝、模拟好友成功、优惠后支付金额、取消后关闭、酒店订单可发起、非机票/酒店拒绝 | PASS |
 
 额外覆盖（位于 API 生命周期测试中）：
 
@@ -73,6 +76,10 @@ duration_ms 334.7645
 | 门票 | 门票搜索 → 详情 → 下单 → 支付 | `ev_ad3f19188ca0211ed525ea4da9ad5e91f00b29566e27157c935124bdf6d6ed48` | [ticket-payment.png](screenshots/ticket-payment.png) | 15 步完成，页面错误 0 |
 | 行程规划 | 打开 AI 行程助手 → 调用后端生成 3 日行程 | `ev_aa5b5e4723d9ea3eea405d92fa218a3e170bb3aa14b728b121623d6b2272be05` | [itinerary-planner.png](screenshots/itinerary-planner.png) | 7 步完成，页面错误 0 |
 | 订单管理页 | 打开订单中心 → 加载 3 个不同状态订单 | `ev_4fd90a5c9f3cd6eb44c10ab50ce8676eb2191f88afc6ce10a216722ba557ff80` | [orders.png](screenshots/orders.png) | 6 步完成，页面错误 0 |
+| 提交订单后的确认支付页 | 下单 → 订单确认页 → 稍后支付 → 自动进入待付款 | `ev_313924027212e5a75d73e0fe44620a6e0a684e246447f2fa202443cb62dfe8d7`（9 步）<br>`ev_3e5f196e6cc34523119f18e65602a48d10e67d13e3ae1c9a1edd0a9273beacc9`（14 步） | [order-confirm.png](screenshots/order-confirm.png)、[orders-pending.png](screenshots/orders-pending.png) | 全部步骤完成，页面错误 0 |
+| 支付页取消与二次确认 | 下单 → 确认支付 → 取消订单 → 二次确认 → 取消成功 | `ev_8784c9d81e8bd35e117f6a914a37ff2b872faca356b02839f9949548b22c84ad`（13 步）<br>`ev_f4b7144f1e9dc47cb1aebf95057c265fda9c93e817ba3e213149ba09f5b6885b`（17 步） | [cancel-confirm.png](screenshots/cancel-confirm.png)、[order-cancelled.png](screenshots/order-cancelled.png) | 全部步骤完成，页面错误 0 |
+| 好友助力砍价 | 下单 → 邀好友砍价 → 模拟 50 位好友 → 砍成 ¥99 → 订单应付更新 | `ev_167aca5010ed5bdd5d7918df6f67d14fbc7402cb417d5c550d956e44f12b111b` | [bargain-success.png](screenshots/bargain-success.png) | 15 步完成，页面错误 0 |
+| 分享链接帮砍 | 分享链接登录 → 帮 TA 砍一刀 → 已助力限制 | `ev_0285dcb3833a30c5669915823168675ab1c8f22cf2bcd2daf37fb8625130f80b` | [bargain-helper.png](screenshots/bargain-helper.png) | 7 步完成，页面错误 0 |
 
 详细索引见 [evidence.md](evidence.md)。
 
@@ -95,6 +102,10 @@ duration_ms 334.7645
 | 搜索性能 | 400 次进程内 + 40 次 HTTP 性能测试（含 7 日低价日历），均有阈值断言 |
 | 订单状态流转 | 状态机单元测试 + API 生命周期 + 15 分钟过期/取消/已值机拒绝取消；酒店超时/取消释放房量 |
 | 订单状态标签 | 机票、酒店、火车票、门票统一后端状态；已支付/已值机标签可正确筛选；本地旧订单“已确认”映射到已支付 |
+| 提交订单确认与支付入口 | 下单后先展示订单确认页（订单号、乘机人、金额、支付截止时间），可确认支付或稍后支付；稍后支付自动进入“待付款”并显示数量；REA 覆盖 |
+| 订单取消 | 待付款与已支付订单在订单页、确认页、支付页均可取消；二次确认后释放库存，已支付订单执行模拟退款；API 测试 + REA 覆盖 |
+| 好友助力砍价 | 机票/酒店待付款订单可发起，分享链接好友限砍一次，金额衰减至 0.01，隐藏阈值成功，最高减 99；砍成后订单折后支付，取消/超时失效；domain + API + REA 覆盖 |
+| 拼多多式演示 | 提供模拟 1/10 位好友、一次拉 50 人演示入口；砍价全过程为本地模拟，不连接真实拼多多或任何社交平台 |
 | 前后端分离 | 静态 SPA + Node JSON API；浏览器通过 `fetch` 调用 `/api` |
 | 外部模拟 API 集成方案 | MockPay 适配器已实现；航信/DCS 的替换点与生产方案见设计文档 |
 
@@ -110,6 +121,7 @@ duration_ms 334.7645
 8. **移动端与无障碍**：已做响应式样式，但未执行完整移动端视觉回归、键盘操作矩阵或 WCAG 审计。
 9. **跨浏览器**：浏览器证据来自 Chrome；未验证 Safari/Firefox。
 10. **订单超时任务**：过期检查在读取/支付/取消时惰性触发，没有独立后台定时器；对演示足够，生产应使用计划任务或队列。
+11. **砍价玩法为本地模拟**：金额衰减与隐藏成功阈值是演示算法，不代表拼多多真实概率或活动规则；分享链接默认只监听本机，局域网联调需设置 `HOST=0.0.0.0`。
 
 ## 6. 复现步骤
 

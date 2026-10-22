@@ -6,6 +6,14 @@ import { ORDER_STATUS, STATUS_LABELS, availableActions, transition } from './ord
 import { boardingPassFor, buildSeatMap, prepareCheckIn } from './checkin.mjs';
 import { buildItinerary } from './itinerary.mjs';
 import { issueTicket } from './airline.mjs';
+import {
+  applyBargainToOrder,
+  closeBargainSession,
+  createBargainSession,
+  cutBargainSession,
+  expireBargainSession,
+  serializeBargainSession
+} from './bargain.mjs';
 
 const QUOTE_TTL_MS = 10 * 60 * 1000;
 const PENDING_TTL_MS = 15 * 60 * 1000;
@@ -17,6 +25,7 @@ const ORDER_TYPE_META = {
   ticket: { typeLabel: '门票', kindLabel: '门票订单' },
   train: { typeLabel: '火车票', kindLabel: '火车票订单' }
 };
+const SIMULATED_FRIEND_NAMES = ['小橙', '阿拼', '旅行家', '砍价王', '锦鲤本鲤', '省钱达人', '周末飞', '酒店控'];
 
 function dayOffset(fromKey, toKey) {
   return Math.round((Date.parse(`${toKey}T00:00:00Z`) - Date.parse(`${fromKey}T00:00:00Z`)) / DAY_MS);
@@ -523,6 +532,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
         if (order.type === 'hotel' && order.details && order.details.hotelId && order.details.roomIndex != null) {
           store.releaseHotelRooms(order.details.hotelId, order.details.roomIndex, Number(order.details.rooms) || 1);
         }
+        closeBargainForOrder(order.id, 'EXPIRED', now, '待付款订单超时，砍价活动已失效');
         changed = true;
       }
     }
@@ -579,6 +589,16 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           reason: `模拟航信出票完成，票号 ${ticketing.ticketNumber}，PNR ${ticketing.pnr}`
         });
       }
+      const bargainSession = store.findBargainByOrderId(orderId);
+      if (bargainSession) {
+        closeBargainSession(
+          bargainSession,
+          bargainSession.status === 'SUCCEEDED' ? 'CLAIMED' : 'EXPIRED',
+          now,
+          bargainSession.status === 'SUCCEEDED' ? '订单已支付，砍价优惠券已使用' : '订单已支付，未完成的砍价活动结束'
+        );
+        await store.replaceBargain(bargainSession);
+      }
       await store.replaceOrder(fresh);
       return serializeOrder(fresh);
     } finally {
@@ -609,6 +629,11 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     if (order.type === 'hotel' && order.details && order.details.hotelId && order.details.roomIndex != null) {
       store.releaseHotelRooms(order.details.hotelId, order.details.roomIndex, Number(order.details.rooms) || 1);
     }
+    const bargainSession = store.findBargainByOrderId(orderId);
+    if (bargainSession) {
+      closeBargainSession(bargainSession, 'CANCELLED', now, '订单已取消，砍价活动结束');
+      await store.replaceBargain(bargainSession);
+    }
     transition(order, ORDER_STATUS.CANCELLED, {
       at: now,
       reason: wasPaid ? '订单已取消，本地模拟退款已完成' : '订单已取消',
@@ -616,6 +641,124 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     });
     await store.replaceOrder(order);
     return serializeOrder(order);
+  }
+
+  function closeBargainForOrder(orderId, status, now, reason) {
+    const session = store.findBargainByOrderId(orderId);
+    if (!session) return null;
+    return closeBargainSession(session, status, now, reason);
+  }
+
+  function requireBargainOrder(session) {
+    const order = store.findOrderById(session.orderId);
+    if (!order) throw notFound('关联订单不存在');
+    return order;
+  }
+
+  async function createBargain(user, orderId) {
+    const now = clock();
+    await expireStaleOrders(now);
+    const order = requireOrderAccess(user, store.findOrderById(orderId));
+    if (order.userId !== user.id) throw forbidden('只能为自己的订单发起砍价');
+    const existing = store.findBargainByOrderId(orderId);
+    if (existing) {
+      if (expireBargainSession(existing, now)) await store.replaceBargain(existing);
+      if (existing.status === 'ACTIVE' || existing.status === 'SUCCEEDED' || existing.status === 'CLAIMED') {
+        return { order: serializeOrder(order), bargain: serializeBargainSession(existing, user.id) };
+      }
+      throw conflict('BARGAIN_CLOSED', '该订单的砍价活动已结束');
+    }
+    if (order.bargain) throw conflict('BARGAIN_CLOSED', '该订单已使用过好友助力优惠，不能重复发起');
+    const session = createBargainSession({ order, owner: user, now });
+    await store.insertBargain(session);
+    return { order: serializeOrder(order), bargain: serializeBargainSession(session, user.id) };
+  }
+
+  async function getBargainForOrder(user, orderId) {
+    const now = clock();
+    await expireStaleOrders(now);
+    const order = requireOrderAccess(user, store.findOrderById(orderId));
+    const session = store.findBargainByOrderId(orderId);
+    if (!session) throw notFound('该订单尚未发起砍价');
+    if (expireBargainSession(session, now)) await store.replaceBargain(session);
+    return { order: serializeOrder(order), bargain: serializeBargainSession(session, user.id) };
+  }
+
+  async function getBargain(user, token) {
+    const session = store.findBargainByToken(token);
+    if (!session) throw notFound('砍价活动不存在或分享链接已失效');
+    const now = clock();
+    if (expireBargainSession(session, now)) await store.replaceBargain(session);
+    const order = requireBargainOrder(session);
+    if (order.status !== ORDER_STATUS.PENDING_PAYMENT && session.status === 'ACTIVE') {
+      closeBargainSession(session, 'EXPIRED', now, '订单已结束，砍价活动失效');
+      await store.replaceBargain(session);
+    }
+    return { order: serializeOrder(order), bargain: serializeBargainSession(session, user.id) };
+  }
+
+  async function helpBargain(user, token) {
+    const session = store.findBargainByToken(token);
+    if (!session) throw notFound('砍价活动不存在或分享链接已失效');
+    const now = clock();
+    const order = requireBargainOrder(session);
+    if (order.status !== ORDER_STATUS.PENDING_PAYMENT) {
+      closeBargainSession(session, 'EXPIRED', now, '订单已结束，砍价活动失效');
+      await store.replaceBargain(session);
+      throw conflict('BARGAIN_CLOSED', '订单已结束，砍价活动已失效');
+    }
+    let result;
+    try {
+      result = cutBargainSession(session, { user, now });
+    } catch (error) {
+      if (session.status === 'EXPIRED') await store.replaceBargain(session);
+      throw error;
+    }
+    if (result.success) {
+      applyBargainToOrder(order, session, now);
+      await store.replaceOrder(order);
+    }
+    await store.replaceBargain(session);
+    return { order: serializeOrder(order), bargain: serializeBargainSession(session, user.id), cut: result.cut };
+  }
+
+  async function simulateBargainCuts(user, token, count) {
+    const session = store.findBargainByToken(token);
+    if (!session) throw notFound('砍价活动不存在或分享链接已失效');
+    if (session.ownerId !== user.id) throw forbidden('只有发起人可以模拟好友助力');
+    const order = requireBargainOrder(session);
+    if (order.status !== ORDER_STATUS.PENDING_PAYMENT) {
+      closeBargainSession(session, 'EXPIRED', clock(), '订单已结束，砍价活动失效');
+      await store.replaceBargain(session);
+      throw conflict('BARGAIN_CLOSED', '订单已结束，砍价活动已失效');
+    }
+    const total = Math.min(10, Math.max(1, Number(count) || 1));
+    const cuts = [];
+    let success = false;
+    for (let index = 0; index < total; index += 1) {
+      if (session.status !== 'ACTIVE') break;
+      const fakeId = `SIM-${session.id}-${session.helperCount + 1}`;
+      const name = `${SIMULATED_FRIEND_NAMES[session.helperCount % SIMULATED_FRIEND_NAMES.length]}好友`;
+      const result = cutBargainSession(session, {
+        user: { id: fakeId, name },
+        now: clock(),
+        simulatedName: name
+      });
+      cuts.push(result.cut);
+      if (result.success) {
+        success = true;
+        applyBargainToOrder(order, session, clock());
+        await store.replaceOrder(order);
+        break;
+      }
+    }
+    await store.replaceBargain(session);
+    return {
+      order: serializeOrder(order),
+      bargain: serializeBargainSession(session, user.id),
+      cuts,
+      success
+    };
   }
 
   function seatMap(user, orderId) {
@@ -674,11 +817,13 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
         'flight-hotel-ticket-orders',
         'mock-payment-gateway',
         'online-check-in',
-        'itinerary-planning'
+        'itinerary-planning',
+        'friend-bargain-wheel'
       ],
       counts: {
         users: store.data.users.length,
         orders: store.data.orders.length,
+        bargains: store.data.bargains.length,
         quotes: quotes.size
       }
     };
@@ -694,6 +839,11 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     getOrder,
     payOrder,
     cancelOrder,
+    createBargain,
+    getBargainForOrder,
+    getBargain,
+    helpBargain,
+    simulateBargainCuts,
     seatMap,
     checkIn,
     boardingPass,

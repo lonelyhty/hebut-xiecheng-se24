@@ -305,6 +305,45 @@ export async function createApplication(options = {}) {
         return;
       }
 
+      const createBargainMatch = /^\/api\/orders\/([^/]+)\/bargain$/.exec(pathname);
+      if (createBargainMatch && method === 'POST') {
+        const user = authenticate(store, request).user;
+        const result = await services.createBargain(user, decodeURIComponent(createBargainMatch[1]));
+        sendJson(response, 200, result);
+        return;
+      }
+      if (createBargainMatch && method === 'GET') {
+        const user = authenticate(store, request).user;
+        const result = await services.getBargainForOrder(user, decodeURIComponent(createBargainMatch[1]));
+        sendJson(response, 200, result);
+        return;
+      }
+
+      const bargainDetailMatch = /^\/api\/bargains\/([^/]+)$/.exec(pathname);
+      if (bargainDetailMatch && method === 'GET') {
+        const user = authenticate(store, request).user;
+        const result = await services.getBargain(user, decodeURIComponent(bargainDetailMatch[1]));
+        sendJson(response, 200, result);
+        return;
+      }
+
+      const bargainCutMatch = /^\/api\/bargains\/([^/]+)\/cut$/.exec(pathname);
+      if (bargainCutMatch && method === 'POST') {
+        const user = authenticate(store, request).user;
+        const result = await services.helpBargain(user, decodeURIComponent(bargainCutMatch[1]));
+        sendJson(response, 200, result);
+        return;
+      }
+
+      const bargainSimulateMatch = /^\/api\/bargains\/([^/]+)\/simulate$/.exec(pathname);
+      if (bargainSimulateMatch && method === 'POST') {
+        const user = authenticate(store, request).user;
+        const body = await readJsonBody(request);
+        const result = await services.simulateBargainCuts(user, decodeURIComponent(bargainSimulateMatch[1]), body.count);
+        sendJson(response, 200, result);
+        return;
+      }
+
       const seatsMatch = /^\/api\/orders\/([^/]+)\/seats$/.exec(pathname);
       if (seatsMatch && method === 'GET') {
         const user = authenticate(store, request).user;
