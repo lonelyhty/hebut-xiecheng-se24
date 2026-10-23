@@ -62,6 +62,7 @@ local-site/
     app.js              前端交互与 API 调用
     api.js              浏览器 API 客户端
     data.js             前后端共享的模拟目录（城市/酒店/航班/门票）
+    flight-pricing.js   前后端共用的航程、日期、航司、舱位与旺季模拟定价
     assets/             本地生成的原创 JPG 配图
   server.mjs             HTTP 服务入口
   server/

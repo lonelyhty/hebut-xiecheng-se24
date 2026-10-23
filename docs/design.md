@@ -254,22 +254,30 @@ sequenceDiagram
 
 航班目录覆盖上海、北京、广州、深圳、成都、杭州、三亚、西安、南京、重庆、武汉、长沙、昆明、厦门、青岛、天津、郑州、大连、哈尔滨、沈阳、贵阳、海口、兰州、乌鲁木齐、宁波、福州、济南、合肥、南昌、南宁、太原、长春 32 个主要城市，使用真实城市三字码、机场名称与航站楼；每个方向组合按日期生成 5 班时刻，由东方航空、中国国航、南方航空、吉祥航空、四川航空执飞。航程时长由城市坐标距离推导，基础座位数为 12–36 个。该目录与时刻是本地模拟，不对应真实航班计划。
 
+前后端共用 `public/flight-pricing.js`，本地模式也应用所选舱位与含税动态价格。基础价由现有地图坐标距离、航线市场系数、航司航线系数与各航司的日期报价系数生成，去掉原来的「280 + 日期哈希 + 航司索引 × 81」固定价差。距离是模型输入代理，不是经纬度测算的真实公里数；所有系数都是演示设定，不是市场采样或航空公司公布运价。
+
 每次搜索按 5 分钟为一个价格桶计算，账单价格与服务端报价保持一致：
 
 ```text
-price = round(
-  (baseFare + proximityAdjustment + demandAdjustment)
-  × cabinFactor
-) + taxFee
+marketFare = round(baseFare × seasonalFactor × travelDateFactor × timeFactor)
+proximityAdjustment = round(marketFare × (leadTimeFactor - 1))
+demandAdjustment = round((marketFare + proximityAdjustment) × (demandFactor - 1))
+ticketFare = round(max(120, marketFare + proximityAdjustment + demandAdjustment) × cabinFactor)
+price = ticketFare + taxFee
 ```
 
 | 因子 | 取值范围 / 说明 |
 |---|---|
-| `baseFare` | 模拟目录中的基础票价（由航线与日期确定性生成） |
-| `proximityAdjustment` | 距出发不足 3 天 +120，不足 14 天 +40，其余 0 |
-| `demandAdjustment` | 由「航班 + 5 分钟时间桶」确定性哈希得到 −30…+30 |
+| `baseFare` | `round10((240 + 地图距离 × 24) × 航线系数 × 航司系数 × 日期报价系数)`；系数范围分别为 0.9–1.1、0.82–1.18、0.8–1.2 |
+| `leadTimeFactor` | 距实际起飞不足 1/3/7/14/30 天分别为 1.48/1.30/1.12/1.00/0.90，30 天及以上为 0.82；按当前 5 分钟桶起点计算，桶内不变价 |
+| `seasonalFactor` | 三亚/海口冬季 1.30、哈尔滨冬季 1.25、乌鲁木齐/昆明/贵阳暑期 1.20，其余暑期 1.12，否则 1.00 |
+| `travelDateFactor` | 10 月 1–7 日、5 月 1–5 日为 1.40，其他周五/周日 1.10、周二/周三 0.94，其余 1.00；为固定演示高峰窗口，非官方放假安排 |
+| `timeFactor` | 8 点前或 22 点后 0.88；8–11 点、17–21 点 1.10；其他时段 1.00 |
+| `demandFactor` | 由「航班 + 5 分钟时间桶」确定性哈希得到 0.97–1.03，短时波动随票价规模变化 |
 | `cabinFactor` | 经济舱 1.00、超级经济舱 1.35、商务舱 2.60、头等舱 3.80 |
 | `taxFee` | 固定模拟税费 80 元 |
+
+`originalPrice` 为模拟参考全价：`max(price, round(baseFare × 1.65 × cabinFactor) + taxFee)`，不是历史成交价。模拟税费与全部票价都不代表现实收费；若要求与实时售价一致，需要接入具备授权的航司或 GDS 报价接口。
 
 每次搜索还会返回：
 

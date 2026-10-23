@@ -1,3 +1,5 @@
+import { computeFlightPrice } from './flight-pricing.js';
+
   const IMG = {
     hero: 'assets/hero-qingdao.jpg',
     shBund: 'assets/hotel-shanghai-bund.jpg',
@@ -392,7 +394,7 @@
     return { time: pad2(Math.floor(total / 60)) + ':' + pad2(total % 60), extraDay: extraDay };
   }
 
-  function getFlights(from, to, date) {
+  function getFlights(from, to, date, { cabin = '经济舱', now = new Date() } = {}) {
     const sourceName = normalizeCity(from);
     const targetName = normalizeCity(to);
     if (!sourceName || !targetName || sourceName === targetName) return [];
@@ -401,6 +403,8 @@
     if (!source || !target) return [];
     const dateKey = date || '';
     const seed = hashString(sourceName + '>' + targetName + '|' + dateKey);
+    const routeKey = sourceName + '>' + targetName;
+    const routeFactor = 0.9 + (hashString(routeKey + '|market') / 4294967296) * 0.2;
     const distance = Math.hypot(source.x - target.x, source.y - target.y);
     const durationMin = Math.max(75, Math.round(distance * 3.2 + 60));
     const departureTimes = [[7, 15], [9, 30], [12, 5], [15, 45], [19, 20]];
@@ -412,8 +416,12 @@
       const arrivalIso = departureIso
         ? new Date(Date.parse(departureIso) + durationMin * 60000).toISOString()
         : '';
-      const baseFare = 280 + (seed % 220) + index * 81;
-      return {
+      // Model coefficients use the existing map distance as a route-length proxy.
+      // Each carrier has its own route position and dated offer, not an index surcharge.
+      const carrierFactor = 0.82 + (hashString(routeKey + '|' + airline.code + '|carrier') / 4294967296) * 0.36;
+      const offerFactor = 0.8 + (hashString(routeKey + '|' + dateKey + '|' + airline.code + '|offer') / 4294967296) * 0.4;
+      const baseFare = round10((240 + distance * 24) * routeFactor * carrierFactor * offerFactor);
+      const flight = {
         id: sourceName + '-' + targetName + '-' + dateKey + '-' + index,
         airline: airline.name,
         code: airline.code,
@@ -435,13 +443,14 @@
         duration: Math.floor(durationMin / 60) + '小时' + pad2(durationMin % 60) + '分',
         durationMin: durationMin,
         aircraft: index % 2 ? '空客 A320' : '波音 737-800',
-        cabin: '经济舱',
+        cabin: cabin,
         onTime: 88 + (hashString(flightNo + dateKey + 'ontime') % 11),
         price: baseFare,
         base: baseFare,
         seats: 12 + index * 6,
         stops: '直飞'
       };
+      return { ...flight, ...computeFlightPrice(flight, cabin, now) };
     });
   }
 

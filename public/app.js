@@ -889,12 +889,12 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     state.flightFilters = { airline: '', maxPrice: upper };
   }
 
-  function localFlightCalendar(from, to, date) {
+  function localFlightCalendar(from, to, date, cabin, now) {
     const items = [];
     for (let offset = -3; offset <= 3; offset += 1) {
       const day = addDays(date, offset);
       if (day < TODAY) continue;
-      const flights = DATA.getFlights(from, to, dateKey(day));
+      const flights = DATA.getFlights(from, to, dateKey(day), { cabin: cabin, now: now });
       if (!flights.length) continue;
       items.push({
         date: dateKey(day),
@@ -996,6 +996,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     state.flightFilters = { airline: '', maxPrice: 4000 };
     state.resultData = [];
     const seq = ++state.searchSeq;
+    const localPricingNow = new Date();
     showResultsLoading(from + ' → ' + to + ' 机票', formatFull(state.flight.date) + ' · ' + state.flight.passengers + '位成人 · ' + state.flight.cabin, '正在计算动态票价与智能推荐…');
     closeMobileNav();
     try {
@@ -1015,9 +1016,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         initializeFlightFilters(state.resultData);
         if (result.query && result.query.date) state.resultParams.date = parseDateKey(result.query.date);
       } else {
-        state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date));
+        state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date), { cabin: state.flight.cabin, now: localPricingNow });
         state.recommendation = null;
-        state.flightCalendar = localFlightCalendar(from, to, state.flight.date);
+        state.flightCalendar = localFlightCalendar(from, to, state.flight.date, state.flight.cabin, localPricingNow);
         initializeFlightFilters(state.resultData);
       }
     } catch (error) {
@@ -1026,9 +1027,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         state.apiOnline = false;
         setApiStatus('offline', '本地模式', '后端搜索失败，已切换到本地模拟数据');
       }
-      state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date));
+      state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date), { cabin: state.flight.cabin, now: localPricingNow });
       state.recommendation = null;
-      state.flightCalendar = localFlightCalendar(from, to, state.flight.date);
+      state.flightCalendar = localFlightCalendar(from, to, state.flight.date, state.flight.cabin, localPricingNow);
       initializeFlightFilters(state.resultData);
       toast('动态票价服务不可用，已回退本地航班：' + error.message);
     }
@@ -1333,7 +1334,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     const labels = flight.recommendation && Array.isArray(flight.recommendation.labels) ? flight.recommendation.labels : [];
     const isBest = labels.indexOf('综合推荐') !== -1;
     const priceNote = flight.originalPrice && flight.originalPrice > flight.price
-      ? '<span class="price-old-inline">¥' + money(flight.originalPrice) + '</span>'
+      ? '<span class="price-old-inline" title="模拟参考全价">¥' + money(flight.originalPrice) + '</span>'
       : '';
     const seats = flight.seatsLeft ? '<span class="seats-left">余 ' + flight.seatsLeft + ' 座</span>' : '<span class="seats-left">动态库存</span>';
     const dynamic = flight.pricing ? '<span class="dynamic-tag">动态票价</span>' : '';
@@ -1456,7 +1457,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       ? new Date(state.priceContext.validUntil).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
       : '';
     $('#resultsTitle').textContent = params.from + ' → ' + params.to + ' 机票';
-    $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + params.passengers + '位成人 · ' + params.cabin + ' · ' + (params.trip === 'roundtrip' ? '往返演示（按单程展示）' : '单程') + ' · 动态含税价';
+    $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + params.passengers + '位成人 · ' + params.cabin + ' · ' + (params.trip === 'roundtrip' ? '往返演示（按单程展示）' : '单程') + ' · 模拟动态含税价';
     const best = filtered.reduce(function (current, flight) {
       if (!current) return flight;
       const currentScore = current.recommendation ? current.recommendation.score : 0;
@@ -1471,7 +1472,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="summary-row"><span>乘客</span><strong>' + params.passengers + '位成人</strong></div>' +
       (best ? '<div class="summary-row"><span>推荐</span><strong>' + esc(best.airline) + ' ' + esc(best.flightNo) + ' · ¥' + money(best.price) + '</strong></div>' : '') +
       '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>' +
-      '<p class="demo-note">动态票价每 5 分钟更新，报价锁定 10 分钟' + (validUntil ? '，当前价格桶有效至 ' + validUntil : '') + '。余票为本地库存，售罄后不再显示。</p>';
+      '<p class="demo-note">本地模拟价格，非航司实时售价；综合航程、航司、日期、旺季、时段和舱位计算，税费为演示固定值。每 5 分钟更新' + (validUntil ? '，当前价格桶有效至 ' + validUntil + '，服务端报价锁定 10 分钟' : '') + '。</p>';
     $('#resultsCount').innerHTML = '共 <strong>' + filtered.length + '</strong> 个可选航班 · 动态含税价 · 余票来自本地库存';
     const reason = best && best.recommendation && best.recommendation.reason
       ? best.recommendation.reason

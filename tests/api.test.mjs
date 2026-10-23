@@ -143,6 +143,45 @@ test('full flight lifecycle: search, quote, order, pay, seat, check-in, boarding
   assert.deepEqual(list.payload.orders[0].availableActions, ['boardingPass']);
 });
 
+test('a locked business quote preserves its per-person price after the pricing bucket changes', async () => {
+  const start = new Date(currentNow);
+  const params = { from: '上海', to: '乌鲁木齐', date: '2026-11-06', passengers: 2, cabin: '商务舱' };
+  let orderId;
+  let token;
+  try {
+    const result = await call('GET', `/api/flights/search?${query(params)}`);
+    assert.equal(result.status, 200);
+    const flight = result.payload.results[0];
+    assert.equal(flight.cabin, '商务舱');
+    const login = await call('POST', '/api/auth/login', { body: { phone: '13600136000', code: '888888', role: 'traveler' } });
+    assert.equal(login.status, 200);
+    token = login.payload.token;
+    currentNow = new Date(start.getTime() + 6 * 60 * 1000);
+    const refreshed = await call('GET', `/api/flights/search?${query(params)}`);
+    assert.equal(refreshed.status, 200);
+    assert.notDeepEqual(refreshed.payload.results.map((item) => item.price), result.payload.results.map((item) => item.price));
+    const created = await call('POST', '/api/orders', {
+      token,
+      body: {
+        type: 'flight', quoteId: flight.quoteId,
+        contact: { name: '报价测试', phone: '13600136000' },
+        passengers: [{ name: '测试甲', document: 'DEMO000101' }, { name: '测试乙', document: 'DEMO000102' }]
+      }
+    });
+    assert.equal(created.status, 201);
+    orderId = created.payload.order.id;
+    assert.equal(created.payload.order.total, flight.price * 2);
+    assert.equal(created.payload.order.details.unitPrice, flight.price);
+    assert.equal(created.payload.order.details.cabin, '商务舱');
+    const paid = await call('POST', `/api/orders/${orderId}/pay`, { token, body: { method: 'alipay' } });
+    assert.equal(paid.status, 200);
+    assert.equal(paid.payload.order.payment.amount, flight.price * 2);
+  } finally {
+    if (orderId) await call('POST', `/api/orders/${orderId}/cancel`, { token });
+    currentNow = start;
+  }
+});
+
 test('cancellation, hotel and ticket orders, roles and access control', async () => {
   const login = await call('POST', '/api/auth/login', {
     body: { phone: '13800138000', code: '888888', role: 'traveler' }

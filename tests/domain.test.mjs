@@ -32,7 +32,8 @@ test('flight search returns priced flights with recommendation metadata', () => 
     assert.ok(flight.price > 0);
     assert.ok(flight.originalPrice >= flight.price);
     assert.equal(flight.pricing.tax, 80);
-    assert.ok(flight.pricing.demandAdjustment >= -30 && flight.pricing.demandAdjustment <= 30);
+    assert.ok(flight.pricing.demandFactor >= 0.97 && flight.pricing.demandFactor <= 1.03);
+    assert.equal(flight.price, flight.pricing.ticketFare + flight.pricing.tax);
     assert.ok(flight.recommendation.score >= 0 && flight.recommendation.score <= 100);
     assert.equal(flight.date, TOMORROW);
   }
