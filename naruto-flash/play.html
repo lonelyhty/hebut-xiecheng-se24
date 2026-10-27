@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>火影VS火影 3.2 · Ruffle 本地播放</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; background: #0b0b0d; overflow: hidden;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #ccc;
+  }
+  #stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #stage ruffle-player, #stage ruffle-embed { width: 100%; height: 100%; }
+  ruffle-player { display: block; background: #000; }
+  #boot {
+    position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px;
+    align-items: center; justify-content: center; text-align: center; pointer-events: none;
+    transition: opacity .4s ease; z-index: 5;
+  }
+  #boot.hide { opacity: 0; }
+  #boot h1 { font-size: 18px; font-weight: 600; color: #e8e8e8; margin: 0; letter-spacing: .5px; }
+  #boot p { margin: 0; font-size: 13px; color: #888; }
+  #bar { width: 260px; height: 3px; background: #232326; border-radius: 2px; overflow: hidden; }
+  #barIn { height: 100%; width: 0%; background: #e0492f; transition: width .25s ease; }
+  #hint {
+    position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: #6b6b70;
+    z-index: 6; user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="boot">
+  <h1>火影VS火影 3.2</h1>
+  <p id="msg">正在加载 Ruffle（Flash 模拟器）…</p>
+  <div id="bar"><div id="barIn"></div></div>
+</div>
+<div id="hint">点一下画面获取键盘焦点 · AD 移动 / S 防御 / J 攻击 / K 跳 / L 冲刺 / U 远攻 / I 必杀 / O 援助</div>
+
+<script>
+  window.RufflePlayer = window.RufflePlayer || {};
+  window.RufflePlayer.config = {
+    publicPath: "./vendor/ruffle/",
+    polyfills: true,
+    autoplay: "on",
+    unmuteOverlay: "hidden",
+    splashScreen: false,
+    scale: "showAll",
+    letterbox: "on",
+    quality: "high",
+    align: "middle",
+    backgroundColor: "#000000",
+    openUrlMode: "deny",
+    allowNetworking: "all",
+    allowScriptAccess: true,
+    fullscreenEnabled: true,
+    contextMenu: "on",
+    warnOnUnsupportedContent: false,
+    logLevel: "info"
+  };
+
+  // 调试用：?log=trace 可临时提高日志等级
+  (function () {
+    const lg = new URLSearchParams(location.search).get('log');
+    if (lg) window.RufflePlayer.config.logLevel = lg;
+  })();
+
+  // 调试：观察 DOM 是否被 SWF 通过 ExternalInterface 注入的 JS 动过
+  if (new URLSearchParams(location.search).has('diag')) {
+    const L = (...a) => console.log('[PAGE]', ...a);
+    new MutationObserver((ms) => ms.forEach((m) => m.removedNodes.forEach((n) => L('removed', n.nodeName, n.id || ''))))
+      .observe(document.documentElement, { childList: true, subtree: true });
+    const _rc = Node.prototype.replaceChild;
+    Node.prototype.replaceChild = function (n, o) { L('replaceChild', n.nodeName, o && o.nodeName); return _rc.call(this, n, o); };
+    const _ra = Node.prototype.removeChild;
+    Node.prototype.removeChild = function (c) { L('removeChild', c.nodeName, c.id || ''); return _ra.call(this, c); };
+    window.reload = function () { L('JS reload() called by SWF'); };
+    window.closePlayer = function () { L('JS closePlayer() called by SWF'); };
+  }
+
+  // 游戏自带的 conf 校验会通过 ExternalInterface 回调这些 JS 函数，先兜底定义
+  window.getBrowser = window.getBrowser || function () { return navigator.userAgent; };
+  window.getVersion = window.getVersion || function () { return "WIN 32,0,0,465"; };
+  window.getFlashVersion = window.getFlashVersion || function () { return "32.0.0.465"; };
+</script>
+<script src="./vendor/ruffle/ruffle.js"></script>
+<script>
+(async function () {
+  const msg = document.getElementById('msg');
+  const barIn = document.getElementById('barIn');
+  const bootEl = document.getElementById('boot');
+  const stage = document.getElementById('stage');
+
+  const SWF_URL = './naruto_vs_naruto_3.2.swf';
+  // 4399 原页面通过 embed 参数传给 SWF 的几项，游戏内置 conf 校验会读 loaderInfo.parameters
+  // 注意：必须走 load() 的 parameters，写在 URL 查询串里 Ruffle 不会当 FlashVars 用
+  const PARAMS = {
+    allowScriptAccess: 'always',
+    allowNetworking: 'all',
+    allowFullScreen: 'true',
+    quality: 'high',
+    wmode: 'window'
+  };
+
+  let attempts = 0;
+  const booted = new WeakSet();
+
+  async function bootPlayer(player, params) {
+    const useParams = Object.assign({}, PARAMS, params || {});
+    msg.textContent = '正在解析 60MB 游戏包（首次约 10~30 秒）…';
+    barIn.style.width = '35%';
+    const ret = player.load({ url: SWF_URL, parameters: useParams });
+    if (ret && typeof ret.then === 'function') await ret;
+    try { player.play && player.play(); } catch (_) {}
+    barIn.style.width = '100%';
+    setTimeout(() => { bootEl.classList.add('hide'); }, 350);
+    setTimeout(() => { bootEl.style.display = 'none'; }, 900);
+    player.focus && player.focus();
+  }
+
+  function attrsToParams(el) {
+    const p = {};
+    for (const a of el.attributes) p[a.name] = a.value;
+    return p;
+  }
+
+  try {
+    const source = RufflePlayer.newest();
+    const first = source.createPlayer();
+    booted.add(first);
+    stage.appendChild(first);
+
+    first.addEventListener('loadedmetadata', () => {
+      msg.textContent = '游戏已解析，正在初始化…';
+      barIn.style.width = '85%';
+    });
+
+    stage.addEventListener('pointerdown', () => {
+      const p = stage.querySelector('ruffle-player');
+      p && p.focus && p.focus();
+    });
+
+    // 4399 的这个壳会在跑起来后，用它自己注入的 JS 把 <embed>/<object> 节点克隆一份再替换，
+    // 用来补写 embed 参数。Ruffle 的元素被替换掉等于实例被销毁（黑屏），所以这里监听替换并重启。
+    const mo = new MutationObserver(() => {
+      const cur = stage.querySelector('ruffle-player');
+      if (!cur || booted.has(cur)) return;
+      if (attempts >= 4) return;
+      attempts += 1;
+      booted.add(cur);
+      console.log('[naruto-flash] player element was replaced by SWF JS, rebooting #' + attempts);
+      const extra = attrsToParams(cur);
+      console.log('[naruto-flash] replaced element attrs: ' + JSON.stringify(extra));
+      bootPlayer(cur, extra).catch((e) => console.warn('[naruto-flash] reboot failed', e));
+    });
+    mo.observe(stage, { childList: true });
+
+    bootPlayer(first).catch((e) => {
+      msg.textContent = '加载失败：' + (e && e.message ? e.message : e);
+      barIn.style.background = '#c0392b';
+      console.error(e);
+    });
+  } catch (e) {
+    msg.textContent = '加载失败：' + (e && e.message ? e.message : e);
+    barIn.style.background = '#c0392b';
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>

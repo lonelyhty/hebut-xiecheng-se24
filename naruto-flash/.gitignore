@@ -1,0 +1,22 @@
+# 游戏本体（58.9MB）：不进仓库，用 setup.ps1 从原站拉
+naruto_vs_naruto_3.2.swf
+*.swf
+
+# Ruffle 运行时（~27MB）：不进仓库，用 setup.ps1 从 npm 拉
+vendor/
+
+# 逆向中间产物
+13.swf.strings.txt
+*.decompressed.swf
+page.html
+_shot*.png
+_log*.txt
+_*.txt
+*.log
+
+# 调试截图
+/*.png
+
+# 凭据
+gh_token.txt
+.env
