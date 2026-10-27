@@ -16,7 +16,7 @@
 |---|---|---|
 | 访客 | 快速了解平台并搜索出行产品 | 首页、航班/酒店/门票搜索、详情、行程规划；预订时被引导登录 |
 | 旅客 | 完成个人出行预订与值机 | 登录、创建订单、支付、取消、查看个人订单、在线值机与登机牌 |
-| 旅行社 | 代旅客管理订单 | 以旅行社角色登录、查看全部旅客订单、查看订单详情；当前不提供企业协议价与批量出票 |
+| 旅行社 | 代旅客管理订单 | 以旅行社角色登录、查看全部旅客订单、查看订单详情和工作台统计；当前不提供企业协议价与批量出票 |
 | 运营/管理员 | 商品与订单管理、风控 | 未实现，属于后续迭代 |
 
 ```mermaid
@@ -101,7 +101,7 @@ flowchart TB
 |---|---|---|
 | 前端交互 | `public/app.js` | 页面状态、表单、搜索结果、订单页、值机/登机牌、降级逻辑 |
 | 前端 API 客户端 | `public/api.js` | 统一请求、Token 存储、错误映射 |
-| 共享目录 | `public/data.js` | 8 个航班城市/机场/航站楼、5 家航空公司、酒店、门票的确定性模拟目录；浏览器与 Node 服务共用 |
+| 共享目录 | `public/data.js` | 32 个航班城市/机场/航站楼、5 家航空公司、酒店、门票的确定性模拟目录；浏览器与 Node 服务共用 |
 | 出票适配 | `server/airline.mjs` | 支付成功后生成模拟票号与 PNR；生产替换为航信/GDS 出票适配器 |
 | HTTP 层 | `server/app.mjs` | 静态文件、路由、鉴权、JSON 解析、错误响应、安全响应头 |
 | 应用层 | `server/service.mjs` | 报价存储、订单编排、权限、支付、过期处理 |
@@ -318,7 +318,7 @@ stateDiagram-v2
   PENDING_PAYMENT --> PAID: 支付成功并模拟出票
   PENDING_PAYMENT --> CANCELLED: 用户取消并释放库存
   PENDING_PAYMENT --> EXPIRED: 15 分钟未支付并释放库存
-  PAID --> CHECKED_IN: 单人机票在值机窗口内选座
+  PAID --> CHECKED_IN: 机票订单在值机窗口内逐人选座
   PAID --> CANCELLED: 取消并模拟退款/释放库存
   PAID --> COMPLETED: 出行完成（预留）
   CHECKED_IN --> COMPLETED: 出行完成（预留）
@@ -332,7 +332,7 @@ stateDiagram-v2
 | `PENDING_PAYMENT` | `PAID` | 支付 | 金额由服务端生成；支付锁防止并发重复支付；成功后模拟出票并写入票号/PNR |
 | `PENDING_PAYMENT` | `CANCELLED` | 取消 | 订单所有者或旅行社；释放已扣减余票 |
 | `PENDING_PAYMENT` | `EXPIRED` | 超时任务 | 创建时间超过 15 分钟；释放余票 |
-| `PAID` | `CHECKED_IN` | 在线值机 | 仅单人机票；起飞前 48 小时至 45 分钟；座位可用；生成 PNR/登机牌 |
+| `PAID` | `CHECKED_IN` | 在线值机 | 1–6 位乘机人逐人选座；起飞前 48 小时至 45 分钟；座位可用；生成 PNR/登机牌 |
 | `PAID` | `CANCELLED` | 取消 | 生成模拟退款记录；释放余票 |
 | `CHECKED_IN` | `COMPLETED` | 预留 | 当前未开放 |
 | `CANCELLED` / `EXPIRED` / `COMPLETED` | 无 | — | 终态，不可支付或值机 |
@@ -341,7 +341,7 @@ stateDiagram-v2
 
 - 任意时刻只能通过状态机 API 改变状态；非法转换返回 409 `INVALID_ORDER_STATE`。
 - 每次状态变化写入 `history`（状态、时间、原因）；支付成功额外追加模拟出票记录。
-- 已值机订单不可取消；多乘机人订单可支付出票，但当前值机演示只支持单人。
+- 已值机订单不可取消；多乘机人订单要求一次提交相同数量的不同座位，并为每位乘机人生成登机牌。
 - 支付成功但重复支付返回 409；同一报价只能创建一个订单。
 - 航班库存只在创建订单时扣减，取消或超时释放；已值机订单保留占用。
 - 值机窗口为起飞前 48 小时至 45 分钟，窗口外返回 409 `CHECKIN_WINDOW`。
@@ -369,7 +369,7 @@ stateDiagram-v2
 
 ## 8. API 契约
 
-所有 API 响应为 JSON；除登录、健康检查、搜索和行程规划外，均需要 `Authorization: Bearer <token>`。
+所有 API 响应为 JSON；除登录、健康检查、搜索和生成行程（`POST /api/itineraries`）外，均需要 `Authorization: Bearer <token>`。
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
@@ -378,11 +378,13 @@ stateDiagram-v2
 | POST | `/api/auth/login` | 否 | `{phone, code, role}`；演示验证码 `888888` |
 | GET | `/api/auth/me` | 是 | 获取当前用户与角色 |
 | POST | `/api/auth/logout` | 是 | 注销会话 |
-| GET | `/api/flights/search` | 否 | `from,to,date,passengers(1–6),cabin`；可带 `airline,departWindow,maxPrice`；返回 5 个航班、`calendar`、`quoteId` 与推荐 |
+| GET | `/api/flights/search` | 否 | `from,to,date,passengers(1–6),cabin`；往返时增加 `trip=roundtrip,returnDate`；可带 `airline,departWindow,maxPrice`；返回报价与推荐 |
 | GET | `/api/trains/search` | 否 | `from,to,date,passengers,type`；返回本地模拟车次 |
 | GET | `/api/hotels/search` | 否 | `city,checkin,checkout[,keyword,level]` |
 | GET | `/api/attractions/search` | 否 | `city,date[,keyword]` |
 | POST | `/api/itineraries` | 否 | `{city, days, preferences}` |
+| GET | `/api/itineraries` | 是 | 当前用户保存的行程历史 |
+| POST | `/api/itineraries/save` | 是 | `{city, days, preferences}`；生成并保存行程 |
 | POST | `/api/orders` | 是 | `type=flight` 用 `quoteId + passengers[{name,document}] + contact`；`hotel` 用 `hotelId/roomIndex/checkin/checkout/rooms` 并扣减房量；`train` 用 `trainId/fromCity/toCity/date/passengers`；`ticket` 用 `ticketId/city/date` |
 | GET | `/api/orders` | 是 | 当前用户订单；旅行社可加 `?scope=all` |
 | GET | `/api/orders/:id` | 是 | 订单详情（所有者或旅行社） |
@@ -394,8 +396,9 @@ stateDiagram-v2
 | POST | `/api/bargains/:token/cut` | 是 | 好友助力；发起人不能自砍，每位用户限一次 |
 | POST | `/api/bargains/:token/simulate` | 是 | 演示模拟好友，仅发起人，`{count:1–10}` |
 | GET | `/api/orders/:id/seats` | 是 | 已支付/已值机机票订单的座位图 |
-| POST | `/api/orders/:id/checkin` | 是 | `{seat}`；仅已支付、单人多票；窗口 48h–45min；座位 1–30 排 A–F |
+| POST | `/api/orders/:id/checkin` | 是 | `{seats:[...]}`；已支付机票逐人选座；窗口 48h–45min；座位 1–30 排 A–F |
 | GET | `/api/orders/:id/boarding-pass` | 是 | 已值机订单的登机牌数据 |
+| GET | `/api/agency/dashboard` | 是 | 旅行社订单统计工作台 |
 
 错误统一为：
 
@@ -430,7 +433,7 @@ stateDiagram-v2
 - 金额由后端计算，前端不传总额；
 - 乘机人数、姓名与演示证件号由后端校验；
 - 航班座位与酒店房量在创建订单时扣减，取消/超时释放，避免超卖；
-- 值机座位可用性由后端校验，且限制单人订单与值机窗口；
+- 值机座位可用性由后端校验，并校验乘机人数、座位数量与值机窗口；
 - 请求体大小限制 1 MB；
 - 静态文件路径防目录穿越；
 - 响应头 `X-Content-Type-Options: nosniff` 与 `Referrer-Policy: no-referrer`；
@@ -448,7 +451,7 @@ stateDiagram-v2
 
 ## 12. 后续迭代
 
-1. 接入数据库（订单事务、乘机人表、真实 PNR/票号与多人值机）。
+1. 接入数据库（订单事务、乘机人表、真实 PNR/票号与真实 DCS 值机）。
 2. 增加管理端：航班/酒店库存、价格规则、订单调度与退款审核。
 3. 增加旅行社批量下单、企业协议价和发票信息。
 4. 引入真实航班库存、机队/机场数据，完善出发时段与行李规则；当前只支持 32 个城市的本地模拟航班。

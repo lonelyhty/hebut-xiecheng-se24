@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="橙程航空旅行一站式服务平台：本地可运行的机票、酒店、门票预订演示，包含动态票价、智能推荐、订单支付、在线值机与行程规划。">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <title>橙程旅行 · 航空旅行一站式服务平台</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="platform.css">
@@ -312,6 +313,12 @@
                       <label>出发日期</label>
                       <strong id="flightDateLabel">10月21日</strong>
                       <span id="flightDateSub">明天</span>
+                      <svg class="date-calendar-icon"><use href="#i-calendar"></use></svg>
+                    </div>
+                    <div class="field field-single-date flight-return-field" id="flightReturnDateField" role="button" tabindex="0" aria-label="选择返程日期" hidden>
+                      <label>返程日期</label>
+                      <strong id="flightReturnDateLabel">10月24日</strong>
+                      <span id="flightReturnDateSub">周六</span>
                       <svg class="date-calendar-icon"><use href="#i-calendar"></use></svg>
                     </div>
                   </div>
@@ -694,6 +701,7 @@
             <div class="orders-page-list" id="ordersPageList"></div>
           </div>
           <aside class="orders-page-side">
+            <div class="summary-card agency-dashboard-card" id="agencyDashboardCard" hidden></div>
             <div class="summary-card">
               <h3>订单状态说明</h3>
               <div class="state-machine-list">

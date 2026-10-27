@@ -125,6 +125,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     orderFilter: 'all',
     ordersScope: 'mine',
     ordersLoading: false,
+    agencyDashboard: null,
     pendingAuthAction: null,
     authRole: 'traveler',
     selectedSeat: null,
@@ -143,6 +144,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       from: '上海',
       to: '北京',
       date: addDays(TODAY, 1),
+      returnDate: addDays(TODAY, 4),
       cabin: '经济舱',
       passengers: 1,
       trip: 'oneway'
@@ -300,6 +302,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
 
     $('#flightDateLabel').textContent = formatMD(state.flight.date);
     $('#flightDateSub').textContent = relativeDay(state.flight.date);
+    $('#flightReturnDateLabel').textContent = formatMD(state.flight.returnDate);
+    $('#flightReturnDateSub').textContent = relativeDay(state.flight.returnDate);
+    $('#flightReturnDateField').hidden = state.flight.trip !== 'roundtrip';
     $('#trainDateLabel').textContent = formatMD(state.train.date);
     $('#trainDateSub').textContent = relativeDay(state.train.date);
     $('#ticketDateLabel').textContent = formatMD(state.ticket.date);
@@ -490,6 +495,11 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       const localOrders = readStore(STORAGE.orders, []);
       state.orders = (result.orders || []).concat(Array.isArray(localOrders) ? localOrders.filter(function (order) { return !order.userId; }).map(normalizeLocalOrder) : []);
       state.ordersScope = result.scope || scope;
+      if (scope === 'all' && state.user && state.user.role === 'agency') {
+        try { state.agencyDashboard = await api.agencyDashboard(); } catch (error) { state.agencyDashboard = null; }
+      } else {
+        state.agencyDashboard = null;
+      }
       state.ordersLoading = false;
       renderOrdersPreview();
       if (!$('#ordersView').hidden) renderOrdersPage();
@@ -651,7 +661,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       }
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
     } else if (isPaidOrder(order)) {
-      if (serverOrder && order.type === 'flight' && (!Array.isArray(order.passengers) || order.passengers.length === 1)) {
+      if (serverOrder && order.type === 'flight') {
         actions.push('<button class="primary-button small" type="button" data-order-checkin="' + esc(order.id) + '">在线值机</button>');
       }
       actions.push('<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>');
@@ -700,6 +710,14 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         : '后端未启动，当前显示浏览器本地的演示订单';
     }
     $('#agencyScopeBadge').hidden = !(state.apiOnline && state.user && state.user.role === 'agency');
+    const agencyCard = $('#agencyDashboardCard');
+    if (agencyCard) {
+      const dashboard = state.agencyDashboard;
+      agencyCard.hidden = !(dashboard && state.user && state.user.role === 'agency');
+      if (dashboard) {
+        agencyCard.innerHTML = '<h3>旅行社工作台</h3><div class="agency-stat-grid"><div><strong>' + dashboard.statusCounts.all + '</strong><span>全部订单</span></div><div><strong>¥' + money(dashboard.paidAmount) + '</strong><span>已支付金额</span></div><div><strong>' + dashboard.activeTravelers + '</strong><span>出行旅客</span></div><div><strong>' + dashboard.statusCounts.PENDING_PAYMENT + '</strong><span>待支付</span></div></div><p class="demo-note">统计来自全部旅客订单，可继续进入订单卡片查看详情。</p>';
+      }
+    }
     const tabCounts = { all: state.orders.length, PENDING_PAYMENT: 0, PAID: 0, CHECKED_IN: 0, CANCELLED: 0 };
     state.orders.forEach(function (order) {
       const key = orderTabForStatus(order.status);
@@ -905,6 +923,27 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     return items;
   }
 
+  function localFlightResults(from, to, flightState, now) {
+    const outbound = DATA.getFlights(from, to, dateKey(flightState.date), { cabin: flightState.cabin, now: now });
+    if (flightState.trip !== 'roundtrip') return outbound;
+    const returns = DATA.getFlights(to, from, dateKey(flightState.returnDate), { cabin: flightState.cabin, now: now });
+    return outbound.map(function (flight, index) {
+      const returnFlight = returns[index % Math.max(returns.length, 1)];
+      if (!returnFlight) return flight;
+      return Object.assign({}, flight, {
+        trip: 'roundtrip',
+        returnDate: dateKey(flightState.returnDate),
+        returnFlight: returnFlight,
+        outboundPrice: flight.price,
+        returnPrice: returnFlight.price,
+        price: flight.price + returnFlight.price,
+        originalPrice: flight.originalPrice + returnFlight.originalPrice,
+        seatsLeft: Math.min(flight.seatsLeft || flight.seats || 0, returnFlight.seatsLeft || returnFlight.seats || 0),
+        pricing: Object.assign({}, flight.pricing, { return: returnFlight.pricing })
+      });
+    });
+  }
+
   async function performHotelSearch() {
     const raw = $('#hotelCityInput').value.trim();
     if (!raw) {
@@ -987,7 +1026,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       date: state.flight.date,
       cabin: state.flight.cabin,
       passengers: state.flight.passengers,
-      trip: state.flight.trip
+      trip: state.flight.trip,
+      returnDate: state.flight.returnDate
     };
     state.filters = defaultFilters('flight');
     state.recommendation = null;
@@ -1005,6 +1045,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           from: from,
           to: to,
           date: dateKey(state.flight.date),
+          returnDate: state.flight.trip === 'roundtrip' ? dateKey(state.flight.returnDate) : '',
+          trip: state.flight.trip,
           passengers: state.flight.passengers,
           cabin: state.flight.cabin
         });
@@ -1015,8 +1057,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         state.flightCalendar = Array.isArray(result.calendar) ? result.calendar : [];
         initializeFlightFilters(state.resultData);
         if (result.query && result.query.date) state.resultParams.date = parseDateKey(result.query.date);
+        if (result.query && result.query.returnDate) state.resultParams.returnDate = parseDateKey(result.query.returnDate);
       } else {
-        state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date), { cabin: state.flight.cabin, now: localPricingNow });
+        state.resultData = localFlightResults(from, to, state.flight, localPricingNow);
         state.recommendation = null;
         state.flightCalendar = localFlightCalendar(from, to, state.flight.date, state.flight.cabin, localPricingNow);
         initializeFlightFilters(state.resultData);
@@ -1027,7 +1070,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         state.apiOnline = false;
         setApiStatus('offline', '本地模式', '后端搜索失败，已切换到本地模拟数据');
       }
-      state.resultData = DATA.getFlights(from, to, dateKey(state.flight.date), { cabin: state.flight.cabin, now: localPricingNow });
+      state.resultData = localFlightResults(from, to, state.flight, localPricingNow);
       state.recommendation = null;
       state.flightCalendar = localFlightCalendar(from, to, state.flight.date, state.flight.cabin, localPricingNow);
       initializeFlightFilters(state.resultData);
@@ -1352,10 +1395,11 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           '<div class="flight-mid"><span>' + esc(flight.duration) + '</span><div class="flight-line"><i></i>' + svgIcon('plane') + '<i></i></div><strong>' + esc(flight.stops) + '</strong></div>' +
           '<div class="flight-end"><strong>' + flight.arr + (flight.extraDay ? '<sup>+1</sup>' : '') + '</strong><span>' + esc(flight.toAirport) + '</span></div>' +
         '</div>' +
-        '<div class="flight-tags"><span class="on-time">准点率 ' + flight.onTime + '%</span><span class="mini-tag">' + esc(flight.cabin) + '</span>' + dynamic + labels.map(function (label) { return '<span class="rec-tag">' + esc(label) + '</span>'; }).join('') + '</div>' +
+        '<div class="flight-tags"><span class="on-time">准点率 ' + flight.onTime + '%</span><span class="mini-tag">' + esc(flight.cabin) + '</span>' + (flight.trip === 'roundtrip' ? '<span class="mini-tag">往返含税</span>' : '') + dynamic + labels.map(function (label) { return '<span class="rec-tag">' + esc(label) + '</span>'; }).join('') + '</div>' +
+        (flight.trip === 'roundtrip' && flight.returnFlight ? '<div class="flight-return-leg"><span>返程</span><strong>' + esc(flight.returnFlight.flightNo) + ' · ' + esc(flight.returnFlight.from) + ' → ' + esc(flight.returnFlight.to) + ' · ' + esc(flight.returnFlight.dep) + ' - ' + esc(flight.returnFlight.arr) + '</strong><small>' + esc(flight.returnDate) + ' · ¥' + money(flight.returnPrice) + '</small></div>' : '') +
         recommendationNote +
       '</div>' +
-      '<div class="transport-price"><strong><em>¥</em>' + money(flight.price) + '</strong>' + priceNote + '<span>含税费 · 每人</span>' + seats + '</div>' +
+      '<div class="transport-price"><strong><em>¥</em>' + money(flight.price) + '</strong>' + priceNote + '<span>' + (flight.trip === 'roundtrip' ? '往返含税 · 每人' : '含税费 · 每人') + '</span>' + seats + '</div>' +
       '<button class="primary-button" type="button" data-book-flight="' + esc(flight.id) + '">选此航班</button>' +
     '</article>';
   }
@@ -1457,7 +1501,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       ? new Date(state.priceContext.validUntil).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
       : '';
     $('#resultsTitle').textContent = params.from + ' → ' + params.to + ' 机票';
-    $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + params.passengers + '位成人 · ' + params.cabin + ' · ' + (params.trip === 'roundtrip' ? '往返演示（按单程展示）' : '单程') + ' · 模拟动态含税价';
+    $('#resultsMeta').textContent = formatFull(params.date) + (params.trip === 'roundtrip' && params.returnDate ? ' - ' + formatFull(params.returnDate) : '') + ' · ' + params.passengers + '位成人 · ' + params.cabin + ' · ' + (params.trip === 'roundtrip' ? '往返' : '单程') + ' · 模拟动态含税价';
     const best = filtered.reduce(function (current, flight) {
       if (!current) return flight;
       const currentScore = current.recommendation ? current.recommendation.score : 0;
@@ -1467,7 +1511,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     $('#summaryCard').innerHTML =
       '<h3>航班摘要</h3>' +
       '<div class="summary-row"><span>航线</span><strong>' + esc(params.from) + ' → ' + esc(params.to) + '</strong></div>' +
-      '<div class="summary-row"><span>日期</span><strong>' + formatFull(params.date) + ' · ' + weekdayName(params.date) + '</strong></div>' +
+      '<div class="summary-row"><span>' + (params.trip === 'roundtrip' ? '日期' : '出发日期') + '</span><strong>' + formatFull(params.date) + ' · ' + weekdayName(params.date) + (params.trip === 'roundtrip' && params.returnDate ? '<br>返程 ' + formatFull(params.returnDate) + ' · ' + weekdayName(params.returnDate) : '') + '</strong></div>' +
       '<div class="summary-row"><span>舱位</span><strong>' + esc(params.cabin) + '</strong></div>' +
       '<div class="summary-row"><span>乘客</span><strong>' + params.passengers + '位成人</strong></div>' +
       (best ? '<div class="summary-row"><span>推荐</span><strong>' + esc(best.airline) + ' ' + esc(best.flightNo) + ' · ¥' + money(best.price) + '</strong></div>' : '') +
@@ -1648,23 +1692,28 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     }
     const passengers = state.resultParams ? state.resultParams.passengers : state.flight.passengers;
     const date = state.resultParams ? state.resultParams.date : state.flight.date;
+    const returnDate = state.resultParams && state.resultParams.returnDate ? state.resultParams.returnDate : state.flight.returnDate;
     const cabin = state.resultParams ? state.resultParams.cabin : state.flight.cabin;
     const total = flight.price * passengers;
     openBooking({
       kind: 'flight',
       kindLabel: '机票订单',
-      title: flight.from + ' → ' + flight.to + ' · ' + flight.flightNo,
-      subtitle: flight.airline + ' · ' + flight.aircraft + ' · ' + flight.fromAirport + ' - ' + flight.toAirport,
+      title: flight.from + ' → ' + flight.to + (flight.trip === 'roundtrip' ? ' 往返' : '') + ' · ' + flight.flightNo,
+      subtitle: flight.airline + ' · ' + flight.aircraft + ' · ' + flight.fromAirport + ' - ' + flight.toAirport + (flight.trip === 'roundtrip' && flight.returnFlight ? ' · 返程 ' + flight.returnFlight.flightNo : ''),
       lines: [
-        { label: '出发日期', value: formatFull(date) },
+        { label: flight.trip === 'roundtrip' ? '去程日期' : '出发日期', value: formatFull(date) },
         { label: '起飞/到达', value: flight.dep + ' - ' + flight.arr + (flight.extraDay ? ' +1天' : '') },
+        ...(flight.trip === 'roundtrip' && flight.returnFlight ? [
+          { label: '返程日期', value: formatFull(returnDate) },
+          { label: '返程起飞/到达', value: flight.returnFlight.dep + ' - ' + flight.returnFlight.arr + (flight.returnFlight.extraDay ? ' +1天' : '') }
+        ] : []),
         { label: '舱位', value: cabin },
         { label: '乘客', value: passengers + '位成人' },
         { label: '航程', value: flight.duration + ' · 直飞' }
       ],
       total: total,
-      totalNote: '¥' + money(flight.price) + ' × ' + passengers + '位乘客',
-      dateLabel: formatFull(date) + ' ' + flight.dep,
+      totalNote: '¥' + money(flight.price) + ' × ' + passengers + '位乘客' + (flight.trip === 'roundtrip' ? '（往返合计）' : ''),
+      dateLabel: formatFull(date) + ' ' + flight.dep + (flight.trip === 'roundtrip' ? ' - ' + formatFull(returnDate) : ''),
       guestLabel: passengers + '位成人',
       meta: [flight.flightNo, cabin, '直飞'],
       passengerCount: passengers,
@@ -1677,6 +1726,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         date: dateKey(date),
         dep: flight.dep,
         arr: flight.arr,
+        trip: flight.trip || 'oneway',
+        returnDate: flight.trip === 'roundtrip' && returnDate ? dateKey(returnDate) : null,
+        returnFlight: flight.returnFlight || null,
         cabin: cabin,
         passengers: passengers
       }
@@ -2527,26 +2579,35 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     '</div>';
     const modal = openModal(html, { className: 'modal-checkin' });
     const root = $('#checkinRoot', modal);
-    let selected = '';
-    const firstAvailable = $('.seat.is-available', root);
-    if (firstAvailable) {
-      selected = firstAvailable.getAttribute('data-seat');
-      firstAvailable.classList.add('is-picked');
-      $('#selectedSeatLabel', root).textContent = selected + '（推荐）';
-      $('#confirmCheckin', root).disabled = false;
-    }
+    const passengerCount = Array.isArray(order.passengers) && order.passengers.length ? order.passengers.length : 1;
+    const selected = [];
+    $$('.seat.is-available', root).slice(0, passengerCount).forEach(function (button) {
+      selected.push(button.getAttribute('data-seat'));
+      button.classList.add('is-picked');
+    });
+    $('#selectedSeatLabel', root).textContent = selected.length === passengerCount ? selected.join('、') + '（推荐）' : '请选择 ' + passengerCount + ' 个座位';
+    $('#confirmCheckin', root).disabled = selected.length !== passengerCount;
     root.addEventListener('click', async function (event) {
       const seatButton = event.target.closest('[data-seat]');
       if (seatButton && !seatButton.disabled) {
-        selected = seatButton.getAttribute('data-seat');
-        $$('.seat.is-picked', root).forEach(function (button) { button.classList.remove('is-picked'); });
-        seatButton.classList.add('is-picked');
-        $('#selectedSeatLabel', root).textContent = selected;
-        $('#confirmCheckin', root).disabled = false;
+        const seatId = seatButton.getAttribute('data-seat');
+        const index = selected.indexOf(seatId);
+        if (index >= 0) {
+          selected.splice(index, 1);
+          seatButton.classList.remove('is-picked');
+        } else if (selected.length < passengerCount) {
+          selected.push(seatId);
+          seatButton.classList.add('is-picked');
+        } else {
+          toast('已选满座位，如需更换请先点击已选座位');
+          return;
+        }
+        $('#selectedSeatLabel', root).textContent = selected.length === passengerCount ? selected.join('、') : '已选 ' + selected.length + '/' + passengerCount;
+        $('#confirmCheckin', root).disabled = selected.length !== passengerCount;
         return;
       }
       const confirm = event.target.closest('#confirmCheckin');
-      if (!confirm || !selected) return;
+      if (!confirm || selected.length !== passengerCount) return;
       confirm.disabled = true;
       confirm.textContent = '值机中…';
       try {
@@ -2578,6 +2639,12 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       }
     }
     const pass = boardingPass;
+    const allPasses = Array.isArray(presetPass && presetPass.boardingPasses) ? presetPass.boardingPasses : (Array.isArray(order.boardingPasses) ? order.boardingPasses : null);
+    if (allPasses && allPasses.length > 1) {
+      const cards = allPasses.map(function (pass) { return '<div class="boarding-pass-mini"><strong>' + esc(pass.passenger) + '</strong><span>座位 ' + esc(pass.seat) + ' · 登机口 ' + esc(pass.gate) + '</span><span>' + esc(pass.flightNo) + ' · ' + esc(pass.date) + ' ' + esc(pass.dep) + '</span><span>PNR ' + esc(pass.pnr) + ' · ' + esc(pass.ticketNumber) + '</span></div>'; }).join('');
+      openModal('<div class="modal-body"><div class="modal-head"><h2 id="modalTitle">多人登机牌</h2><p>已为全部乘机人完成值机。</p></div><div class="boarding-pass-list">' + cards + '</div><div class="bp-actions"><button class="primary-button" type="button" data-bp-print>打印 / 保存登机牌</button><button class="secondary-button" type="button" data-success-orders>返回订单</button></div></div>', { className: 'modal-boarding-pass' });
+      return;
+    }
     const html = '<div class="modal-body"><div class="boarding-pass-wrap">' +
       '<div class="boarding-pass-sheet">' +
         '<div class="bp-top"><div class="bp-brand">' + svgIcon('plane') + '<strong>橙程航空</strong><span>BOARDING PASS</span></div><span class="bp-sequence">' + esc(pass.boardingPassCode.slice(-8)) + '</span></div>' +
@@ -2984,21 +3051,24 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
 
   function openCalendar(target) {
     const isHotel = target === 'hotel';
+    const isRange = isHotel || target === 'flightRoundtrip';
     let baseDate;
     if (target === 'hotel') baseDate = state.search.checkin;
     else if (target === 'flight') baseDate = state.flight.date;
+    else if (target === 'flightRoundtrip') baseDate = state.flight.date;
     else if (target === 'train') baseDate = state.train.date;
     else baseDate = state.ticket.date;
     const cache = {
       target: target,
       isHotel: isHotel,
+      isRange: isRange,
       start: baseDate,
-      end: isHotel ? state.search.checkout : null,
+      end: isHotel ? state.search.checkout : (target === 'flightRoundtrip' ? state.flight.returnDate : null),
       view: firstOfMonth(baseDate)
     };
     state.calendar = cache;
     const html = '<div id="calendarRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">' + (isHotel ? '选择入住和退房日期' : '选择出发日期') + '</h2><p>' + (isHotel ? '先选入住日期，再选退房日期。今天之后的日期均可选择。' : '选择今天或之后的日期。') + '</p></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">' + (isHotel ? '选择入住和退房日期' : (target === 'flightRoundtrip' ? '选择出发和返程日期' : '选择出发日期')) + '</h2><p>' + (isHotel ? '先选入住日期，再选退房日期。今天之后的日期均可选择。' : (target === 'flightRoundtrip' ? '先选出发日期，再选返程日期。返程必须晚于出发日期。' : '选择今天或之后的日期。')) + '</p></div>' +
       '<div class="modal-body">' +
         '<div class="calendar-summary" id="calendarSummary"></div>' +
         '<div class="calendar-months" id="calendarMonths"></div>' +
@@ -3012,18 +3082,18 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       const startKey = cache.start ? dateKey(cache.start) : '';
       const endKey = cache.end ? dateKey(cache.end) : '';
       $('#calendarSummary', root).innerHTML = cache.start
-        ? (cache.isHotel
+          ? (cache.isRange
           ? '入住 <strong>' + formatFull(cache.start) + '</strong>' + (cache.end ? ' · 退房 <strong>' + formatFull(cache.end) + '</strong>' : ' · 请选择退房日期')
           : '已选择 <strong>' + formatFull(cache.start) + ' ' + weekdayName(cache.start) + '</strong>')
         : '请选择日期';
       let monthsHtml = calendarMonthHtml(cache.view, cache, true);
-      if (cache.isHotel) monthsHtml += calendarMonthHtml(addMonths(cache.view, 1), cache, false);
+      if (cache.isRange) monthsHtml += calendarMonthHtml(addMonths(cache.view, 1), cache, false);
       $('#calendarMonths', root).innerHTML = monthsHtml;
       const nights = cache.start && cache.end ? diffDays(cache.start, cache.end) : 0;
-      $('#calendarFooterCopy', root).innerHTML = cache.isHotel
+      $('#calendarFooterCopy', root).innerHTML = cache.isRange
         ? (cache.start && cache.end ? formatMD(cache.start) + ' - ' + formatMD(cache.end) + ' · 共 <strong>' + nights + '</strong> 晚' : '请选择完整的入住与退房日期')
         : (cache.start ? formatFull(cache.start) + ' · ' + weekdayName(cache.start) : '请选择日期');
-      $('#calendarConfirm', root).disabled = cache.isHotel ? !(cache.start && cache.end && nights > 0) : !cache.start;
+      $('#calendarConfirm', root).disabled = cache.isRange ? !(cache.start && cache.end && nights > 0) : !cache.start;
     }
 
     function handleClick(event) {
@@ -3040,7 +3110,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (dayButton) {
         const selected = parseDateKey(dayButton.getAttribute('data-cal-date'));
         if (selected < TODAY) return;
-        if (!cache.isHotel) {
+        if (!cache.isRange) {
           cache.start = selected;
           cache.end = null;
         } else if (!cache.start || (cache.start && cache.end)) {
@@ -3057,12 +3127,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       }
       if (event.target.closest('#calendarConfirm')) {
         if (!cache.start) return;
-        if (cache.isHotel && (!cache.end || diffDays(cache.start, cache.end) < 1)) return;
+        if (cache.isRange && (!cache.end || diffDays(cache.start, cache.end) < 1)) return;
         if (cache.target === 'hotel') {
           state.search.checkin = cache.start;
           state.search.checkout = cache.end;
         } else if (cache.target === 'flight') {
           state.flight.date = cache.start;
+        } else if (cache.target === 'flightRoundtrip') {
+          state.flight.date = cache.start;
+          state.flight.returnDate = cache.end;
         } else if (cache.target === 'train') {
           state.train.date = cache.start;
         } else {
@@ -3070,7 +3143,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         }
         updateAllDateUi();
         closeModal();
-        toast(cache.isHotel ? '已更新入住日期' : '已更新出发日期');
+        toast(cache.isHotel ? '已更新入住日期' : (cache.target === 'flightRoundtrip' ? '已更新往返日期' : '已更新出发日期'));
       }
     }
 
@@ -3095,7 +3168,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       const disabled = date < TODAY;
       const isStart = key === startKey;
       const isEnd = key === endKey;
-      const inRange = cache.isHotel && startKey && endKey && key > startKey && key < endKey;
+      const inRange = cache.isRange && startKey && endKey && key > startKey && key < endKey;
       const classes = ['cal-day'];
       if (disabled) classes.push('is-other');
       if (key === dateKey(TODAY)) classes.push('is-today');
@@ -3153,6 +3226,14 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         startHotelSearch(city, '');
         return;
       }
+      if (event.target.closest('[data-planner-save]')) {
+        savePlannerResult(root);
+        return;
+      }
+      if (event.target.closest('[data-planner-history]')) {
+        openPlannerHistory();
+        return;
+      }
       if (event.target.closest('[data-planner-reset]')) {
         openPlannerModal();
       }
@@ -3195,8 +3276,33 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     result.hidden = false;
     result.innerHTML = '<div class="planner-banner"><div><strong>' + esc(data.city) + ' · ' + data.days + '天' + (data.days - 1) + '晚 · ' + esc(data.preferences.join(' / ') || '均衡') + '行程</strong><span>' + esc(data.summary) + ' · 预计 ¥' + money(data.estimatedCost) + '</span></div>' + svgIcon('sparkle') + '</div>' +
       daysHtml +
-      '<div class="planner-actions"><button class="primary-button" type="button" data-planner-search="' + esc(data.city) + '">按此行程找酒店</button><button class="secondary-button" type="button" data-planner-reset>重新规划</button></div>' +
+      '<div class="planner-actions"><button class="primary-button" type="button" data-planner-save>保存行程</button><button class="secondary-button" type="button" data-planner-search="' + esc(data.city) + '">按此行程找酒店</button><button class="secondary-button" type="button" data-planner-history>查看已保存行程</button><button class="secondary-button" type="button" data-planner-reset>重新规划</button></div>' +
       '<p class="demo-note">行程由本地后端 API 按模拟景点与酒店生成，不构成真实旅行建议。</p>';
+  }
+
+  async function savePlannerResult(root) {
+    if (!state.plannerResult || !state.apiOnline || !state.user) {
+      toast('保存行程需要先启动后端并登录');
+      return;
+    }
+    try {
+      const preferenceMap = { '休闲': 'relax', '美食': 'food', '亲子': 'family', '文化': 'culture' };
+      const preferences = (state.plannerResult.preferences || []).map(function (item) { return preferenceMap[item] || item; });
+      const result = await api.saveItinerary({ city: state.plannerResult.city, days: state.plannerResult.days, preferences: preferences });
+      state.plannerResult = result.itinerary;
+      toast('行程已保存，可在行程历史中查看');
+    } catch (error) { toast(error.message); }
+  }
+
+  async function openPlannerHistory() {
+    if (!state.apiOnline || !state.user) { toast('查看行程历史需要登录'); return; }
+    try {
+      const result = await api.listItineraries();
+      const rows = (result.itineraries || []).map(function (item) {
+        return '<div class="planner-history-row"><strong>' + esc(item.title) + '</strong><span>' + esc(formatDateTime(item.createdAt)) + ' · 预计 ¥' + money(item.estimatedCost) + '</span></div>';
+      }).join('');
+      openModal('<div class="modal-head"><h2 id="modalTitle">已保存行程</h2><p>行程保存在本地后端账户中。</p></div><div class="modal-body"><div class="planner-history-list">' + (rows || '<p class="demo-note">暂无保存的行程。</p>') + '</div></div>');
+    } catch (error) { toast(error.message); }
   }
 
   function renderPlannerResult(root, city, days, style) {
@@ -3457,7 +3563,11 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       const tab = event.target.closest('[data-trip]');
       if (!tab) return;
       state.flight.trip = tab.getAttribute('data-trip');
+      if (state.flight.trip === 'roundtrip' && state.flight.returnDate <= state.flight.date) {
+        state.flight.returnDate = addDays(state.flight.date, 3);
+      }
       $$('#tripTabs .trip-tab').forEach(function (button) { button.classList.toggle('is-active', button === tab); });
+      updateAllDateUi();
     });
 
     $('#flightRouteShortcuts').addEventListener('click', function (event) {
@@ -3474,6 +3584,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
 
     bindDateTrigger('#hotelDateField', 'hotel');
     bindDateTrigger('#flightDateField', 'flight');
+    bindDateTrigger('#flightReturnDateField', 'flightRoundtrip');
     bindDateTrigger('#trainDateField', 'train');
     bindDateTrigger('#ticketDateField', 'ticket');
 

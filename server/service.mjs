@@ -3,7 +3,7 @@ import { TRAVEL_DATA } from '../public/data.js';
 import { badRequest, conflict, forbidden, notFound, unprocessable } from './errors.mjs';
 import { buildFlightSearch, chinaDateKey, decorateRecommendations, parseDateKey } from './pricing.mjs';
 import { ORDER_STATUS, STATUS_LABELS, availableActions, transition } from './order-machine.mjs';
-import { boardingPassFor, buildSeatMap, prepareCheckIn } from './checkin.mjs';
+import { boardingPassesFor, buildSeatMap, prepareCheckIn } from './checkin.mjs';
 import { buildItinerary } from './itinerary.mjs';
 import { issueTicket } from './airline.mjs';
 import {
@@ -157,6 +157,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
 
   function searchFlights(params) {
     const now = clock();
+    const trip = params.trip === 'roundtrip' ? 'roundtrip' : 'oneway';
     const result = buildFlightSearch({
       from: params.from,
       to: params.to,
@@ -170,21 +171,51 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
         maxPrice: params.maxPrice
       }
     });
+    let returnResult = null;
+    if (trip === 'roundtrip') {
+      if (!params.returnDate) throw badRequest('往返航班需要填写返程日期');
+      const returnDate = parseDateKey(params.returnDate);
+      if (returnDate.key <= result.query.date) throw badRequest('返程日期必须晚于出发日期');
+      returnResult = buildFlightSearch({
+        from: params.to,
+        to: params.from,
+        date: returnDate.key,
+        passengers: params.passengers,
+        cabin: params.cabin,
+        now,
+        filters: {}
+      });
+    }
+    result.query.trip = trip;
+    result.query.returnDate = returnResult ? returnResult.query.date : null;
     const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS).toISOString();
     const searchDate = result.query.date;
     const available = result.results
-      .map((flight) => ({
-        ...flight,
-        date: searchDate,
-        seatsLeft: store.getAvailableFlightSeats(flight.id, flight.seats)
-      }))
-      .filter((flight) => flight.seatsLeft >= flight.passengers);
+      .map((flight, index) => {
+        const returnFlight = returnResult && returnResult.results[index % returnResult.results.length];
+        return {
+          ...flight,
+          date: searchDate,
+          trip,
+          returnDate: returnResult ? returnResult.query.date : null,
+          returnFlight,
+          seatsLeft: store.getAvailableFlightSeats(flight.id, flight.seats),
+          returnSeatsLeft: returnFlight ? store.getAvailableFlightSeats(returnFlight.id, returnFlight.seats) : null,
+          outboundPrice: flight.price,
+          returnPrice: returnFlight ? returnFlight.price : 0,
+          price: returnFlight ? flight.price + returnFlight.price : flight.price,
+          originalPrice: returnFlight ? flight.originalPrice + returnFlight.originalPrice : flight.originalPrice,
+          pricing: returnFlight ? { ...flight.pricing, return: returnFlight.pricing } : flight.pricing
+        };
+      })
+      .filter((flight) => flight.seatsLeft >= flight.passengers && (!flight.returnFlight || flight.returnSeatsLeft >= flight.passengers));
     result.results = available.map((flight) => {
       const quoteId = `Q-${randomUUID()}`;
       quotes.set(quoteId, {
         id: quoteId,
         flightId: flight.id,
         flight,
+        returnFlight: flight.returnFlight || null,
         unitPrice: flight.price,
         passengers: flight.passengers,
         cabin: flight.cabin,
@@ -312,21 +343,27 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       }
       if (quote.usedAt) throw conflict('QUOTE_USED', '该报价已用于创建订单，请重新搜索');
       const flight = quote.flight;
+      const returnFlight = quote.returnFlight;
       const passengers = normalizeFlightPassengers(input.passengers, quote.passengers);
       const total = quote.unitPrice * quote.passengers;
-      reservation = {
+      reservation = [{
         flightId: flight.id,
         totalSeats: Number(flight.seats) || 30,
         count: quote.passengers
-      };
+      }];
+      if (returnFlight) reservation.push({
+        flightId: returnFlight.id,
+        totalSeats: Number(returnFlight.seats) || 30,
+        count: quote.passengers
+      });
       quote.usedAt = now.toISOString();
       order = {
         ...base,
-        title: `${flight.from} → ${flight.to} · ${flight.flightNo}`,
-        subtitle: `${flight.airline} · ${flight.aircraft} · ${flight.fromAirport} - ${flight.toAirport}`,
-        dateLabel: `${formatCnDate(flight.date)} ${flight.dep}`,
+        title: `${flight.from} → ${flight.to}${returnFlight ? ' 往返' : ''} · ${flight.flightNo}`,
+        subtitle: `${flight.airline} · ${flight.aircraft} · ${flight.fromAirport} - ${flight.toAirport}${returnFlight ? ` · 返程 ${returnFlight.flightNo}` : ''}`,
+        dateLabel: `${formatCnDate(flight.date)} ${flight.dep}${returnFlight ? ` - ${formatCnDate(returnFlight.date)} ${returnFlight.dep}` : ''}`,
         guestLabel: `${quote.passengers}位成人`,
-        meta: [flight.flightNo, quote.cabin, '直飞'],
+        meta: [flight.flightNo, ...(returnFlight ? [returnFlight.flightNo] : []), quote.cabin, returnFlight ? '往返' : '直飞'],
         total,
         passengers,
         items: [
@@ -340,7 +377,18 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
             arr: flight.arr,
             cabin: quote.cabin,
             unitPrice: quote.unitPrice,
-            passengers: quote.passengers
+            passengers: quote.passengers,
+            trip: returnFlight ? 'roundtrip' : 'oneway',
+            returnFlight: returnFlight ? {
+              flightNo: returnFlight.flightNo,
+              airline: returnFlight.airline,
+              from: returnFlight.from,
+              to: returnFlight.to,
+              dep: returnFlight.dep,
+              arr: returnFlight.arr,
+              date: returnFlight.date,
+              unitPrice: returnFlight.price
+            } : null
           }
         ],
         details: {
@@ -360,7 +408,24 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           passengers: quote.passengers,
           passengerNames: passengers.map((passenger) => passenger.name),
           unitPrice: quote.unitPrice,
-          pricing: flight.pricing
+          pricing: flight.pricing,
+          trip: returnFlight ? 'roundtrip' : 'oneway',
+          returnFlightId: returnFlight ? returnFlight.id : null,
+          returnFlight: returnFlight ? {
+            flightNo: returnFlight.flightNo,
+            airline: returnFlight.airline,
+            from: returnFlight.from,
+            to: returnFlight.to,
+            fromAirport: returnFlight.fromAirport,
+            toAirport: returnFlight.toAirport,
+            date: returnFlight.date,
+            dep: returnFlight.dep,
+            arr: returnFlight.arr,
+            extraDay: returnFlight.extraDay,
+            aircraft: returnFlight.aircraft,
+            unitPrice: returnFlight.price,
+            pricing: returnFlight.pricing
+          } : null
         }
       };
     } else if (type === 'hotel') {
@@ -497,9 +562,16 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       throw badRequest('不支持的订单类型');
     }
 
+    const reservedFlights = [];
     if (reservation) {
-      const reserved = store.reserveFlightSeats(reservation.flightId, reservation.totalSeats, reservation.count);
-      if (!reserved) throw conflict('SOLD_OUT', '余票不足，请重新搜索航班');
+      for (const leg of reservation) {
+        const reserved = store.reserveFlightSeats(leg.flightId, leg.totalSeats, leg.count);
+        if (!reserved) {
+          reservedFlights.forEach((item) => store.releaseFlightSeats(item.flightId, item.count));
+          throw conflict('SOLD_OUT', '往返航班余票不足，请重新搜索航班');
+        }
+        reservedFlights.push(leg);
+      }
     }
     if (hotelReservation) {
       const reserved = store.reserveHotelRooms(hotelReservation.hotelId, hotelReservation.roomIndex, hotelReservation.totalRooms, hotelReservation.count);
@@ -508,7 +580,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     try {
       await store.insertOrder(order);
     } catch (error) {
-      if (reservation) store.releaseFlightSeats(reservation.flightId, reservation.count);
+      reservedFlights.forEach((item) => store.releaseFlightSeats(item.flightId, item.count));
       if (hotelReservation) store.releaseHotelRooms(hotelReservation.hotelId, hotelReservation.roomIndex, hotelReservation.count);
       throw error;
     }
@@ -528,6 +600,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
         });
         if (order.type === 'flight' && order.details && order.details.flightId) {
           store.releaseFlightSeats(order.details.flightId, orderPassengerCount(order));
+          if (order.details.returnFlightId) store.releaseFlightSeats(order.details.returnFlightId, orderPassengerCount(order));
         }
         if (order.type === 'hotel' && order.details && order.details.hotelId && order.details.roomIndex != null) {
           store.releaseHotelRooms(order.details.hotelId, order.details.roomIndex, Number(order.details.rooms) || 1);
@@ -551,6 +624,37 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       scope: scope === 'all' ? 'all' : 'mine',
       role: user.role,
       orders: orders.map(serializeOrder)
+    };
+  }
+
+  async function agencyDashboard(user) {
+    if (user.role !== 'agency') throw forbidden('只有旅行社角色可以查看工作台');
+    await expireStaleOrders(clock());
+    const orders = store.listOrders();
+    const statusCounts = {
+      all: orders.length,
+      PENDING_PAYMENT: 0,
+      PAID: 0,
+      CHECKED_IN: 0,
+      CANCELLED: 0,
+      EXPIRED: 0
+    };
+    const typeCounts = {};
+    let paidAmount = 0;
+    let passengerCount = 0;
+    orders.forEach((order) => {
+      if (statusCounts[order.status] != null) statusCounts[order.status] += 1;
+      typeCounts[order.type] = (typeCounts[order.type] || 0) + 1;
+      if (order.status === ORDER_STATUS.PAID || order.status === ORDER_STATUS.CHECKED_IN) paidAmount += Number(order.total) || 0;
+      passengerCount += Array.isArray(order.passengers) ? order.passengers.length : Number(order.details?.passengers || 0);
+    });
+    return {
+      generatedAt: clock().toISOString(),
+      statusCounts,
+      typeCounts,
+      paidAmount,
+      passengerCount,
+      activeTravelers: new Set(orders.filter((order) => order.status === ORDER_STATUS.PAID || order.status === ORDER_STATUS.CHECKED_IN).map((order) => order.userId)).size
     };
   }
 
@@ -625,6 +729,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     };
     if (order.type === 'flight' && order.details && order.details.flightId) {
       store.releaseFlightSeats(order.details.flightId, orderPassengerCount(order));
+      if (order.details.returnFlightId) store.releaseFlightSeats(order.details.returnFlightId, orderPassengerCount(order));
     }
     if (order.type === 'hotel' && order.details && order.details.hotelId && order.details.roomIndex != null) {
       store.releaseHotelRooms(order.details.hotelId, order.details.roomIndex, Number(order.details.rooms) || 1);
@@ -775,24 +880,28 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     };
   }
 
-  async function checkIn(user, orderId, seat, now = clock()) {
+  async function checkIn(user, orderId, seat, seats, now = clock()) {
     const order = requireOrderAccess(user, store.findOrderById(orderId));
-    const checkin = prepareCheckIn(store, order, seat, now);
+    const selectedSeats = Array.isArray(seats) ? seats : seat;
+    const checkin = prepareCheckIn(store, order, selectedSeats, now);
     transition(order, ORDER_STATUS.CHECKED_IN, {
       at: now,
-      reason: `在线值机成功，座位 ${checkin.seat}`,
-      patch: { checkin }
+      reason: `在线值机成功，座位 ${(checkin.checkins || [checkin]).map((item) => item.seat).join('、')}`,
+      patch: { checkin: checkin.checkins ? checkin.checkins[0] : checkin, checkins: checkin.checkins || [checkin] }
     });
     await store.replaceOrder(order);
+    const passes = boardingPassesFor(order);
     return {
       order: serializeOrder(order),
-      boardingPass: boardingPassFor(order)
+      boardingPass: passes.length === 1 ? passes[0] : { ...passes[0], boardingPasses: passes },
+      boardingPasses: passes
     };
   }
 
   function boardingPass(user, orderId) {
     const order = requireOrderAccess(user, store.findOrderById(orderId));
-    return boardingPassFor(order);
+    const passes = boardingPassesFor(order);
+    return passes.length === 1 ? passes[0] : { ...passes[0], boardingPasses: passes };
   }
 
   function itinerary(input) {
@@ -802,6 +911,28 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       preferences: input.preferences,
       now: clock()
     });
+  }
+
+  async function saveItinerary(user, input) {
+    const generated = itinerary(input);
+    const now = clock();
+    const saved = {
+      id: `IT-${randomUUID().slice(0, 8).toUpperCase()}`,
+      userId: user.id,
+      userRole: user.role,
+      title: `${generated.city} ${generated.days} 天行程`,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      ...generated
+    };
+    await store.insertItinerary(saved);
+    return saved;
+  }
+
+  async function listItineraries(user) {
+    const itineraries = store.listItinerariesForUser(user.id)
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    return { itineraries };
   }
 
   function health() {
@@ -836,6 +967,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     searchAttractions,
     createOrder,
     listOrders,
+    agencyDashboard,
     getOrder,
     payOrder,
     cancelOrder,
@@ -848,6 +980,8 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     checkIn,
     boardingPass,
     itinerary,
+    saveItinerary,
+    listItineraries,
     health,
     expireStaleOrders
   };

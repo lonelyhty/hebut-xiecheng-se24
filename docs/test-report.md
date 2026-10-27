@@ -1,6 +1,6 @@
 # 测试报告
 
-- 测试日期：2026-10-21
+- 测试日期：2026-10-27
 - 环境：Windows 10.0.26300 x64；Node.js v24.18.0；本地回环服务 `127.0.0.1:5180`
 - 自动化命令：`npm test`
 - 浏览器证据：REA 6.4.0 `capture-browser-scenario`，本机 Chrome，headless，视口 1440×1000，`zh-CN` / `Asia/Shanghai`
@@ -9,8 +9,8 @@
 ## 1. 自动化测试结果
 
 ```
-tests 28
-pass 28
+tests 39
+pass 39
 fail 0
 duration_ms 317.8629
 ```
@@ -24,14 +24,15 @@ duration_ms 317.8629
 | 5 | cabin/passenger effects | 舱位因子、乘客数对报价的影响 | PASS |
 | 6 | invalid routes/dates/cabins rejected | 过去日期、同城、未知舱位、非法乘客数 | PASS |
 | 7 | order state machine | 允许/拒绝的状态转换、可用操作 | PASS |
-| 8 | check-in seat selection and conflicts | 30 排 × A–F = 180 个座位、可用座位值机、占用座位拒绝、PNR/票号登机牌字段 | PASS |
-| 9 | check-in requires paid order and future departure | 未支付拒绝、起飞后拒绝、超过 48h 拒绝、多人订单拒绝单人值机 | PASS |
+| 8 | check-in seat selection and conflicts | 30 排 × A–F = 180 个座位、1–6 位乘机人逐人选座、占用座位拒绝、PNR/票号登机牌字段 | PASS |
+| 9 | check-in requires paid order and future departure | 未支付拒绝、起飞后拒绝、超过 48h 拒绝、多人订单座位数量校验 | PASS |
 | 10 | itinerary planner | 逐日行程、酒店与花费、城市/天数校验 | PASS |
 | 11 | in-process search performance | 400 次搜索的 p50/p95/p99 | PASS |
 | 12 | HTTP search performance | 40 次串行 HTTP 搜索的 p50/p95/p99 | PASS |
 | 13 | browser local orders | 本地订单创建即待付款、本地支付/取消状态机、模拟退款、15 分钟失效、旧状态归一化、跨标签页不覆盖 | PASS |
 | 14 | bargain wheel domain | 发起人自动砍价、好友限一次、金额衰减到 0.01 停滞、隐藏阈值成功、99 元封顶、失效与订单类型限制 | PASS |
 | 15 | bargain API | 创建砍价、发起人不能自砍、好友重复拒绝、模拟好友成功、优惠后支付金额、取消后关闭、酒店订单可发起、非机票/酒店拒绝 | PASS |
+| 16 | round-trip and saved itinerary API | 往返去程/返程报价与双程库存、保存行程、行程历史、旅行社统计工作台 | PASS |
 
 额外覆盖（位于 API 生命周期测试中）：
 
@@ -89,7 +90,7 @@ duration_ms 317.8629
 |---|---|
 | 智能航班推荐 | 后端 48/24/16/12 权重评分；domain 测试验证推荐 ID/最低价一致性；REA 覆盖推荐卡片和理由 |
 | 动态票价模拟 | 5 分钟价格桶 + 临近调整/需求扰动/舱位因子 + 80 元税费；domain 测试验证确定性与时间敏感性；页面显示动态价格、原价、余票与理由 |
-| 在线值机 | 支付出票后 30 排 A–F 座位图、48h–45min 窗口、单人订单、后端座位冲突校验、PNR/票号/登机口/登机时间；API 测试 + REA 全流程 |
+| 在线值机 | 支付出票后 30 排 A–F 座位图、48h–45min 窗口、1–6 人逐人选座、后端座位冲突校验、PNR/票号/登机口/登机时间；API 测试 + REA 全流程 |
 | 行程规划 | 后端按城市/天数/偏好生成逐日行程；API 测试 + REA |
 | 多角色（旅客/旅行社） | 登录角色选择；旅客订单隔离；旅行社 `scope=all` 与跨用户读取；API 测试覆盖 |
 | 真实机场/航司目录 | 32 城真实三字码、机场/航站楼、5 家航司、992 个方向组合、基于距离的 5 班时刻；页面与 API 使用同一目录 |
@@ -115,7 +116,7 @@ duration_ms 317.8629
 2. **没有生产并发/容量验证**：JSON 文件存储和内存报价只适用于单进程演示。
 3. **没有真实支付回调与幂等 webhook**：仅有本地同步支付和支付锁。
 4. **旅行社前端视角未单独截图**：角色与权限由 API 测试覆盖；UI 只通过同一订单页渲染 all scope。
-5. **多人值机未实现**：与 GPT 版一致，支付出票支持 1–6 人，但当前在线值机仅支持单人订单。
+5. **多人值机已实现为本地模拟**：支付出票支持 1–6 人，值机接口要求逐人提交不同座位并返回多张模拟登机牌；真实航司 DCS 仍未接入。
 6. **航班仅覆盖 32 个城市**：其余城市在航班搜索中会返回“暂无可模拟航班”，酒店/门票不受此限制。
 7. **打印登机牌未做物理打印机验证**：仅实现 `@media print` 样式。
 8. **移动端与无障碍**：已做响应式样式，但未执行完整移动端视觉回归、键盘操作矩阵或 WCAG 审计。

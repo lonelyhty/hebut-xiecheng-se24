@@ -417,3 +417,19 @@
 .bargain-skip { display: block; margin: 9px auto 0; border: 0; background: transparent; color: #9aa6b6; font-size: 10px; text-decoration: underline; text-underline-offset: 2px; }
 .bargain-skip:hover { color: #d97706; }
 .bargain-remaining.is-done { color: #11815e; font-weight: 600; }
+.flight-return-leg { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; margin-top: 9px; padding: 8px 10px; border-radius: 9px; background: #f5f9ff; color: #526077; font-size: 12px; }
+.flight-return-leg span { color: #2f6fed; font-weight: 700; }
+.flight-return-leg strong { color: #253653; font-size: 12px; }
+.flight-return-leg small { color: #7b879b; }
+.flight-return-field { min-width: 132px; }
+.boarding-pass-list { display: grid; gap: 12px; }
+.boarding-pass-mini { display: grid; gap: 5px; padding: 14px 16px; border: 1px solid #dce8f6; border-radius: 12px; background: #f8fbff; color: #526077; }
+.boarding-pass-mini strong { color: #1e3152; font-size: 15px; }
+.planner-history-list { display: grid; gap: 10px; }
+.planner-history-row { display: flex; justify-content: space-between; gap: 16px; padding: 13px 14px; border: 1px solid #e4ebf5; border-radius: 10px; }
+.planner-history-row span { color: #718099; font-size: 12px; }
+.agency-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.agency-stat-grid div { padding: 10px; border-radius: 9px; background: #f5f9ff; }
+.agency-stat-grid strong, .agency-stat-grid span { display: block; }
+.agency-stat-grid strong { color: #1f6fd1; font-size: 18px; }
+.agency-stat-grid span { color: #718099; font-size: 11px; margin-top: 3px; }

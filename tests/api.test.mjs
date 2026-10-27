@@ -366,3 +366,52 @@ test('cancellation, hotel and ticket orders, roles and access control', async ()
   });
   assert.equal(payExpired.status, 409);
 });
+
+test('round-trip flight quotes, saved itineraries and agency dashboard', async () => {
+  const roundTrip = await call('GET', `/api/flights/search?${query({
+    from: '上海', to: '北京', date: '2026-10-21', returnDate: '2026-10-24', trip: 'roundtrip', passengers: 1, cabin: '经济舱'
+  })}`);
+  assert.equal(roundTrip.status, 200);
+  assert.equal(roundTrip.payload.query.trip, 'roundtrip');
+  assert.equal(roundTrip.payload.query.returnDate, '2026-10-24');
+  assert.equal(roundTrip.payload.results.length, 5);
+  assert.ok(roundTrip.payload.results[0].returnFlight);
+  assert.equal(roundTrip.payload.results[0].price, roundTrip.payload.results[0].outboundPrice + roundTrip.payload.results[0].returnPrice);
+
+  const login = await call('POST', '/api/auth/login', {
+    body: { phone: '13900139000', code: '888888', role: 'traveler' }
+  });
+  const token = login.payload.token;
+  const roundTripOrder = await call('POST', '/api/orders', {
+    token,
+    body: {
+      type: 'flight',
+      quoteId: roundTrip.payload.results[0].quoteId,
+      contact: { name: '往返测试', phone: '13900139000' },
+      passengers: [{ name: '往返旅客', document: 'DEMO000901' }]
+    }
+  });
+  assert.equal(roundTripOrder.status, 201);
+  assert.equal(roundTripOrder.payload.order.details.trip, 'roundtrip');
+  assert.ok(roundTripOrder.payload.order.details.returnFlightId);
+  assert.equal(roundTripOrder.payload.order.items[0].returnFlight.date, '2026-10-24');
+  const cancelledRoundTrip = await call('POST', `/api/orders/${roundTripOrder.payload.order.id}/cancel`, { token });
+  assert.equal(cancelledRoundTrip.status, 200);
+  const saved = await call('POST', '/api/itineraries/save', {
+    token,
+    body: { city: '上海', days: 2, preferences: ['food'] }
+  });
+  assert.equal(saved.status, 201);
+  assert.ok(saved.payload.itinerary.id);
+  const history = await call('GET', '/api/itineraries', { token });
+  assert.equal(history.status, 200);
+  assert.equal(history.payload.itineraries.length, 1);
+
+  const agencyLogin = await call('POST', '/api/auth/login', {
+    body: { phone: '13900139999', code: '888888', role: 'agency' }
+  });
+  const dashboard = await call('GET', '/api/agency/dashboard', { token: agencyLogin.payload.token });
+  assert.equal(dashboard.status, 200);
+  assert.ok(dashboard.payload.statusCounts.all >= 0);
+  assert.ok(dashboard.payload.paidAmount >= 0);
+});

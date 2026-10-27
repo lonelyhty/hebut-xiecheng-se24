@@ -125,12 +125,24 @@ export const api = {
     return request('/itineraries', { method: 'POST', body: payload, auth: false });
   },
 
+  saveItinerary(payload) {
+    return request('/itineraries/save', { method: 'POST', body: payload });
+  },
+
+  listItineraries() {
+    return request('/itineraries');
+  },
+
   createOrder(payload) {
     return request('/orders', { method: 'POST', body: payload });
   },
 
   listOrders(scope) {
     return request(`/orders${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`);
+  },
+
+  agencyDashboard() {
+    return request('/agency/dashboard');
   },
 
   getOrder(orderId) {
@@ -169,8 +181,12 @@ export const api = {
     return request(`/orders/${encodeURIComponent(orderId)}/seats`);
   },
 
-  checkIn(orderId, seat) {
-    return request(`/orders/${encodeURIComponent(orderId)}/checkin`, { method: 'POST', body: { seat } });
+  checkIn(orderId, seats) {
+    const selected = Array.isArray(seats) ? seats : [seats];
+    return request(`/orders/${encodeURIComponent(orderId)}/checkin`, {
+      method: 'POST',
+      body: { seats: selected, seat: selected[0] }
+    });
   },
 
   boardingPass(orderId) {

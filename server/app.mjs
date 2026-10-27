@@ -209,6 +209,8 @@ export async function createApplication(options = {}) {
           from: query.from,
           to: query.to,
           date: query.date,
+          returnDate: query.returnDate,
+          trip: query.trip || 'oneway',
           passengers: requireInteger(query.passengers, 1),
           cabin: query.cabin || '经济舱',
           airline: query.airline || '',
@@ -263,6 +265,22 @@ export async function createApplication(options = {}) {
         return;
       }
 
+      if (pathname === '/api/itineraries' && method === 'GET') {
+        const user = authenticate(store, request).user;
+        const result = await services.listItineraries(user);
+        sendJson(response, 200, result);
+        return;
+      }
+
+      if (pathname === '/api/itineraries/save' && method === 'POST') {
+        const user = authenticate(store, request).user;
+        const body = await readJsonBody(request);
+        const result = await services.saveItinerary(user, body);
+        status = 201;
+        sendJson(response, 201, { itinerary: result });
+        return;
+      }
+
       if (pathname === '/api/orders' && method === 'POST') {
         const user = authenticate(store, request).user;
         const body = await readJsonBody(request);
@@ -276,6 +294,13 @@ export async function createApplication(options = {}) {
         const user = authenticate(store, request).user;
         const scope = url.searchParams.get('scope') === 'all' ? 'all' : 'mine';
         const result = await services.listOrders(user, scope);
+        sendJson(response, 200, result);
+        return;
+      }
+
+      if (pathname === '/api/agency/dashboard' && method === 'GET') {
+        const user = authenticate(store, request).user;
+        const result = await services.agencyDashboard(user);
         sendJson(response, 200, result);
         return;
       }
@@ -356,7 +381,7 @@ export async function createApplication(options = {}) {
       if (checkinMatch && method === 'POST') {
         const user = authenticate(store, request).user;
         const body = await readJsonBody(request);
-        const result = await services.checkIn(user, decodeURIComponent(checkinMatch[1]), body.seat, clock());
+        const result = await services.checkIn(user, decodeURIComponent(checkinMatch[1]), body.seat, body.seats, clock());
         sendJson(response, 200, result);
         return;
       }

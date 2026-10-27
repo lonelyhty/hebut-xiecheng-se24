@@ -163,7 +163,10 @@ test('check-in requires a paid order and a future departure', () => {
       { name: '旅客乙', document: 'DEMO000002' }
     ]
   };
-  assert.throws(() => prepareCheckIn(store, groupOrder, '1A', NOW), (error) => error.code === 'SINGLE_CHECKIN_ONLY');
+  assert.throws(() => prepareCheckIn(store, groupOrder, '1A', NOW), (error) => error.code === 'CHECKIN_SEAT_COUNT');
+  const groupCheckin = prepareCheckIn(store, groupOrder, ['1A', '1B'], NOW);
+  assert.deepEqual(groupCheckin.checkins.map((item) => item.seat), ['1A', '1B']);
+  assert.equal(groupCheckin.checkins[1].passenger, '旅客乙');
 });
 
 test('itinerary planner returns day-by-day plans and costs', () => {

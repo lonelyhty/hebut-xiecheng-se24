@@ -7,6 +7,7 @@ const EMPTY_DATA = {
   users: [],
   sessions: [],
   orders: [],
+  itineraries: [],
   bargains: [],
   inventory: {},
   hotelInventory: {}
@@ -34,6 +35,7 @@ export class Store {
         users: Array.isArray(parsed.users) ? parsed.users : [],
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
         orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+        itineraries: Array.isArray(parsed.itineraries) ? parsed.itineraries : [],
         bargains: Array.isArray(parsed.bargains) ? parsed.bargains : [],
         inventory: parsed.inventory && typeof parsed.inventory === 'object' ? parsed.inventory : {},
         hotelInventory: parsed.hotelInventory && typeof parsed.hotelInventory === 'object' ? parsed.hotelInventory : {}
@@ -126,7 +128,7 @@ export class Store {
     if (!this.data.inventory[flightId]) {
       const reserved = this.data.orders
         .filter((order) => order.type === 'flight' && ACTIVE_FLIGHT_STATUSES.has(order.status))
-        .filter((order) => order.details && order.details.flightId === flightId)
+        .filter((order) => order.details && (order.details.flightId === flightId || order.details.returnFlightId === flightId))
         .reduce((sum, order) => {
           const details = order.details || {};
           return sum + Number(details.passengers || (Array.isArray(order.passengers) ? order.passengers.length : 1));
@@ -211,6 +213,20 @@ export class Store {
 
   getOrdersForUser(userId) {
     return this.data.orders.filter((order) => order.userId === userId);
+  }
+
+  async insertItinerary(itinerary) {
+    this.data.itineraries.push(itinerary);
+    await this.save();
+    return itinerary;
+  }
+
+  findItineraryById(id) {
+    return this.data.itineraries.find((itinerary) => itinerary.id === id) || null;
+  }
+
+  listItinerariesForUser(userId) {
+    return this.data.itineraries.filter((itinerary) => itinerary.userId === userId);
   }
 
   findBargainByToken(token) {
