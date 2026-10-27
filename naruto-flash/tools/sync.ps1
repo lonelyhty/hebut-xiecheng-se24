@@ -22,7 +22,9 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$repoRoot = Split-Path -Parent $PSScriptRoot
+# 仓库根目录：优先问 git（脚本被放在子目录里也能正确工作），拿不到就退回脚本上一层
+$repoRoot = (& git -C $PSScriptRoot rev-parse --show-toplevel) 2>$null
+if (-not $repoRoot) { $repoRoot = Split-Path -Parent $PSScriptRoot }
 Set-Location $repoRoot
 
 function Log($msg, $color = 'Gray') {
