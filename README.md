@@ -95,7 +95,3 @@ REA 采样的原始场景与证据 JSON 保留在本地证据包中，不随公�
 - [测试报告](docs/test-report.md)：自动化测试结果、搜索性能数据、浏览器全流程验证范围与未验证项。
 - [REA 证据索引](docs/evidence.md)：浏览器验证场景、证据 ID 与最终截图。
 - 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [订单确认与支付](docs/screenshots/order-confirm.png) · [取消订单确认](docs/screenshots/cancel-confirm.png) · [好友砍价成功](docs/screenshots/bargain-success.png) · [帮好友砍一刀](docs/screenshots/bargain-helper.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)
-
-## 边界说明
-
-本项目是教学/演示性质的本地系统，不是生产可用的旅行交易平台。所有航班、酒店、门票、价格、座位、登机口、支付流水与订单均为本地模拟；演示验证码、Bearer Token 和 JSON 数据文件都不具备生产安全性。真实部署需要接入持牌支付、航信/DCS、短信与实名认证服务，并补充数据库、密钥管理、审计、限流和监控。
