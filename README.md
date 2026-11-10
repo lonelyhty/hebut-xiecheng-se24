@@ -46,6 +46,13 @@ npm start
 - **预订**：1–6 位乘机人，姓名与演示证件号由后端校验；创建订单时扣减余票，取消或超时自动释放。提交订单后先进入订单确认页，展示订单号、乘机人、金额与支付截止时间。
 - **支付与出票**：本地 MockPay 沙箱，支付宝/微信/银行卡三种模拟方式；支付成功后生成模拟票号与 PNR，不产生真实扣款。支付页与订单确认页均可直接取消订单，取消前要求二次确认，已支付订单执行模拟退款并释放库存。
 - **好友助力砍价**：机票/酒店待付款订单可发起拼多多式「砍 ¥99」，分享链接每位好友限砍一次；金额逐步衰减到 0.01，砍成后订单立减，取消或超时自动失效；提供模拟好友与批量演示入口。
+- **汽车·船票**：城际巴士与海岛航线搜索，按城市/日期查询班次，展示时刻、车站、车型与余票，筛选后可直接下单进入本地订单体系。
+- **用车**：接送机、接送火车、租车与即时打车四种场景；按上下车点估算里程与时长，分车型报价，租车按天计费，均可下单。
+- **旅游度假**：跟团游/自由行/周边游套餐，支持目的地、天数、关键词与排序筛选；套餐详情含逐日行程与费用包含，可一键预订。
+- **攻略·景点**：攻略文章流（含正文、贴士与点赞）与城市景点榜单；景点可直接进入门票详情与预订流程。
+- **全球购**：分类商品网格、搜索与排序、商品详情、数量步进、购物车增删改与结算下单。
+- **礼品卡**：面额/卡面/数量/祝福语实时预览，购买后生成本地礼品卡订单。
+- **橙程金融 / 老友会 / 关于与帮助**：金融产品与分期试算器、银发慢游线路与报名咨询、关于页与帮助中心/协议/隐私/订单说明/取消政策/商务合作/加入我们等内容页，替换原有占位弹窗。
 - **在线值机**：已支付机票订单支持 1–6 位乘机人，在起飞前 48 小时至 45 分钟窗口内逐人选择 1–30 排 A–F 座位，生成多张模拟登机牌。
 - **行程规划**：后端按城市、天数、偏好生成逐日行程并联动同城酒店；登录后可保存行程并查看历史。
 - **多角色**：旅客与旅行社视角，旅行社可读取全部订单并查看订单量、支付金额、出行旅客和待支付统计工作台。
@@ -67,6 +74,10 @@ local-site/
     api.js              浏览器 API 客户端
     data.js             前后端共享的模拟目录（城市/酒店/航班/门票）
     flight-pricing.js   前后端共用的航程、日期、航司、舱位与旺季模拟定价
+    extra-data.js       汽车/船票班次与用车报价模拟
+    travel-data.js      旅游度假套餐与攻略文章
+    shop-data.js        全球购商品与礼品卡面额/卡面
+    content-data.js     金融/老友会/关于/帮助页内容
     assets/             本地生成的原创 JPG 配图
   server.mjs             HTTP 服务入口
   server/
@@ -94,4 +105,4 @@ REA 采样的原始场景与证据 JSON 保留在本地证据包中，不随公�
 - [架构与业务设计](docs/design.md)：角色用例、架构图、关键序列图、动态定价、推荐权重、订单状态机、外部模拟 API 集成方案与 API 契约。
 - [测试报告](docs/test-report.md)：自动化测试结果、搜索性能数据、浏览器全流程验证范围与未验证项。
 - [REA 证据索引](docs/evidence.md)：浏览器验证场景、证据 ID 与最终截图。
-- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [订单确认与支付](docs/screenshots/order-confirm.png) · [取消订单确认](docs/screenshots/cancel-confirm.png) · [好友砍价成功](docs/screenshots/bargain-success.png) · [帮好友砍一刀](docs/screenshots/bargain-helper.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)
+- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [订单确认与支付](docs/screenshots/order-confirm.png) · [取消订单确认](docs/screenshots/cancel-confirm.png) · [好友砍价成功](docs/screenshots/bargain-success.png) · [帮好友砍一刀](docs/screenshots/bargain-helper.png) · [汽车·船票](docs/screenshots/service-coach.png) · [用车](docs/screenshots/service-car.png) · [旅游度假](docs/screenshots/service-travel.png) · [攻略·景点](docs/screenshots/service-guide.png) · [全球购](docs/screenshots/service-shop.png) · [礼品卡](docs/screenshots/service-gift.png) · [橙程金融](docs/screenshots/service-finance.png) · [老友会](docs/screenshots/service-senior.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)

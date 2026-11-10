@@ -1,5 +1,9 @@
 import { TRAVEL_DATA as DATA } from './data.js';
 import { api } from './api.js';
+import { EXTRA } from './extra-data.js';
+import { searchPackages, packageById, packageDests, guides, guideById } from './travel-data.js';
+import { SHOP_CATEGORIES, searchProducts, productById, GIFT_DENOMS, GIFT_THEMES } from './shop-data.js';
+import { FINANCE_PRODUCTS, SENIOR_PACKAGES, SENIOR_BENEFITS, ABOUT_STATS, ABOUT_TIMELINE, INFO_CONTENT } from './content-data.js';
 import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrder } from './local-orders.js';
 
 (function () {
@@ -551,6 +555,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function showHome(scroll) {
     $('#resultsView').hidden = true;
     $('#ordersView').hidden = true;
+    $('#serviceView').hidden = true;
     $('#homeView').hidden = false;
     state.homeVisible = true;
     if (scroll !== false) window.scrollTo({ top: 0, behavior: 'auto' });
@@ -559,6 +564,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function showResultsView() {
     $('#homeView').hidden = true;
     $('#ordersView').hidden = true;
+    $('#serviceView').hidden = true;
     $('#resultsView').hidden = false;
     state.homeVisible = false;
     const results = $('#resultsView');
@@ -571,9 +577,23 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function showOrdersView() {
     $('#homeView').hidden = true;
     $('#resultsView').hidden = true;
+    $('#serviceView').hidden = true;
     $('#ordersView').hidden = false;
     state.homeVisible = false;
     const view = $('#ordersView');
+    view.classList.remove('view-enter');
+    void view.offsetWidth;
+    view.classList.add('view-enter');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  function showServiceView() {
+    $('#homeView').hidden = true;
+    $('#resultsView').hidden = true;
+    $('#ordersView').hidden = true;
+    $('#serviceView').hidden = false;
+    state.homeVisible = false;
+    const view = $('#serviceView');
     view.classList.remove('view-enter');
     void view.offsetWidth;
     view.classList.add('view-enter');
@@ -616,6 +636,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     if (order.type === 'flight') return svgIcon('plane');
     if (order.type === 'hotel') return svgIcon('bed');
     if (order.type === 'train') return svgIcon('train');
+    if (order.type === 'bus') return svgIcon('bus');
+    if (order.type === 'ship') return svgIcon('boat');
+    if (order.type === 'car') return svgIcon('car');
     return svgIcon('ticket');
   }
 
@@ -862,13 +885,935 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   }
 
   function switchService(service) {
-    if (service === 'car' || service === 'taxi') {
-      toast('汽车·船票与用车服务为占位演示，暂未接入模拟数据。');
-      return;
-    }
+    if (service === 'car') { openServicePage('bus'); return; }
+    if (service === 'taxi') { openServicePage('car'); return; }
     if (!MODE_CONFIG[service]) return;
     setMode(service, { scroll: true });
     closeMobileNav();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Extra service pages (coach / ship / car)                            */
+  /* ------------------------------------------------------------------ */
+
+  function openServicePage(key) {
+    closeMobileNav();
+    closeModal();
+    state.servicePage = key;
+    showServiceView();
+    $$('.side-item').forEach(function (item) {
+      const service = item.getAttribute('data-service');
+      const page = item.getAttribute('data-service-page');
+      const active = (key === 'bus' && service === 'car') || (key === 'car' && service === 'taxi') || page === key;
+      item.classList.toggle('is-active', active);
+    });
+    if (key === 'bus') renderBusPage();
+    else if (key === 'car') renderCarPage();
+    else if (key === 'travel') renderTravelPage();
+    else if (key === 'guide') renderGuidePage();
+    else if (key === 'shop') renderShopPage();
+    else if (key === 'gift') renderGiftPage();
+    else if (key === 'finance') renderFinancePage();
+    else if (key === 'senior') renderSeniorPage();
+    else if (key === 'about') renderAboutPage();
+    else if (key === 'inspire') renderInspirePage();
+    else if (key.indexOf('info:') === 0) renderInfoPage(key.slice(5));
+    else renderServicePlaceholder(key);
+  }
+
+  function servicePageShell(title, subtitle, body) {
+    $('#servicePage').innerHTML =
+      '<div class="sp-head">' +
+        '<button class="ghost-button" type="button" data-sp-back><svg><use href="#i-chevron-left"></use></svg>返回首页</button>' +
+        '<div class="sp-title"><h1>' + esc(title) + '</h1><p>' + esc(subtitle) + '</p></div>' +
+      '</div>' + body;
+    const back = $('[data-sp-back]');
+    if (back) back.addEventListener('click', function () { showHome(true); });
+  }
+
+  function renderServicePlaceholder(key) {
+    servicePageShell('服务建设中', '本地演示', '<div class="sp-card"><p>该服务页面正在完善。</p></div>');
+  }
+
+  function coachFormHtml(kind) {
+    const cities = EXTRA.coachCities(kind);
+    const from = cities[0] || '上海';
+    const to = cities[1] || cities[0] || '杭州';
+    return '<div class="sp-hero sp-hero-' + kind + '">' +
+      '<div class="sp-hero-copy"><h2>' + (kind === 'ship' ? '预订船票' : '预订汽车票') + '</h2><p>' + (kind === 'ship' ? '海岛航线 · 码头直连' : '城际班线 · 车站直连') + '</p></div>' +
+      '<form class="sp-form" id="coachForm" novalidate>' +
+        '<div class="sp-field"><label>出发城市</label><select id="coachFrom">' + cities.map(function (city) { return '<option' + (city === from ? ' selected' : '') + '>' + esc(city) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="sp-field"><label>到达城市</label><select id="coachTo">' + cities.map(function (city) { return '<option' + (city === to ? ' selected' : '') + '>' + esc(city) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="sp-field"><label>出发日期</label><input id="coachDate" type="date" value="' + dateKey(addDays(TODAY, 1)) + '"></div>' +
+        '<button class="sp-search" type="submit"><svg><use href="#i-search"></use></svg>搜索</button>' +
+      '</form>' +
+    '</div>';
+  }
+
+  function renderBusPage() {
+    state.coachKind = state.coachKind || 'bus';
+    const kind = state.coachKind;
+    servicePageShell('汽车·船票', '城际巴士与海岛航线 · 本地模拟班次',
+      '<div class="sp-tabs" id="coachTabs">' +
+        '<button type="button" data-coach-kind="bus" class="' + (kind === 'bus' ? 'is-active' : '') + '">汽车票</button>' +
+        '<button type="button" data-coach-kind="ship" class="' + (kind === 'ship' ? 'is-active' : '') + '">船票</button>' +
+      '</div>' +
+      coachFormHtml(kind) +
+      '<div class="sp-results" id="coachResults"></div>');
+    $('#coachTabs').addEventListener('click', function (event) {
+      const tab = event.target.closest('[data-coach-kind]');
+      if (!tab) return;
+      state.coachKind = tab.getAttribute('data-coach-kind');
+      renderBusPage();
+      runCoachSearch();
+    });
+    $('#coachForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      runCoachSearch();
+    });
+    runCoachSearch();
+  }
+
+  function runCoachSearch() {
+    const kind = state.coachKind || 'bus';
+    const from = $('#coachFrom').value;
+    const to = $('#coachTo').value;
+    const date = $('#coachDate').value || dateKey(addDays(TODAY, 1));
+    const box = $('#coachResults');
+    if (from === to) {
+      box.innerHTML = '<div class="sp-empty">出发与到达城市不能相同。</div>';
+      return;
+    }
+    const found = EXTRA.searchCoaches({ from, to, kind, date });
+    if (!found.results.length) {
+      box.innerHTML = '<div class="sp-empty">暂无 ' + esc(from) + ' → ' + esc(to) + ' 的' + (kind === 'ship' ? '航线' : '班线') + '，请更换城市组合。</div>';
+      return;
+    }
+    state.coachResults = found.results;
+    box.innerHTML =
+      '<div class="sp-results-head"><strong>' + esc(from) + ' → ' + esc(to) + '</strong><span>' + found.results.length + ' 个班次 · ' + esc(date) + '</span></div>' +
+      '<div class="sp-list">' + found.results.map(coachRowHtml).join('') + '</div>';
+    box.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-coach-book]');
+      if (!button) return;
+      const item = (state.coachResults || []).find(function (row) { return row.id === button.getAttribute('data-coach-book'); });
+      if (item) bookCoach(item);
+    });
+  }
+
+  function coachRowHtml(item) {
+    return '<article class="sp-row">' +
+      '<div class="sp-row-time"><strong>' + item.dep + '</strong><span>' + esc(item.fromStation) + '</span></div>' +
+      '<div class="sp-row-mid"><span>' + esc(item.duration) + '</span><i class="sp-line"></i><span>' + (item.kind === 'ship' ? '直达航线' : '直达班线') + '</span></div>' +
+      '<div class="sp-row-time"><strong>' + item.arr + (item.extraDay ? '<sup>+1</sup>' : '') + '</strong><span>' + esc(item.toStation) + '</span></div>' +
+      '<div class="sp-row-meta"><span class="sp-tag">' + esc(item.vehicle) + '</span><span class="sp-seats">余 ' + item.seats + ' 座</span></div>' +
+      '<div class="sp-row-price"><strong><em>¥</em>' + money(item.price) + '</strong><button class="primary-button small" type="button" data-coach-book="' + esc(item.id) + '">预订</button></div>' +
+    '</article>';
+  }
+
+  function bookCoach(item) {
+    openBooking({
+      kind: item.kind,
+      kindLabel: item.kind === 'ship' ? '船票订单' : '汽车票订单',
+      title: item.from + ' → ' + item.to + ' · ' + item.dep,
+      subtitle: item.vehicle + ' · ' + item.fromStation + ' - ' + item.toStation,
+      lines: [
+        { label: '出发日期', value: item.date },
+        { label: '起飞/开船', value: item.dep + ' - ' + item.arr },
+        { label: '类型', value: item.vehicle },
+        { label: '航程/车程', value: item.duration }
+      ],
+      total: item.price,
+      totalNote: '¥' + money(item.price) + ' × 1位乘客',
+      dateLabel: item.date + ' ' + item.dep,
+      guestLabel: '1位成人',
+      meta: [item.vehicle, item.duration],
+      details: { coachId: item.id, kind: item.kind, from: item.from, to: item.to, dep: item.dep }
+    });
+  }
+
+  function renderCarPage() {
+    state.carTab = state.carTab || 'airport';
+    const tab = state.carTab;
+    servicePageShell('用车', '接送机 · 接送火车 · 租车 · 即时打车',
+      '<div class="sp-tabs" id="carTabs">' +
+        [['airport', '接送机'], ['train', '接送火车'], ['rental', '租车'], ['taxi', '打车']].map(function (pair) {
+          return '<button type="button" data-car-tab="' + pair[0] + '" class="' + (tab === pair[0] ? 'is-active' : '') + '">' + pair[1] + '</button>';
+        }).join('') +
+      '</div>' +
+      carFormHtml(tab) +
+      '<div class="sp-results" id="carResults"></div>');
+    $('#carTabs').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-car-tab]');
+      if (!button) return;
+      state.carTab = button.getAttribute('data-car-tab');
+      renderCarPage();
+      runCarSearch();
+    });
+    $('#carForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      runCarSearch();
+    });
+    runCarSearch();
+  }
+
+  function carFormHtml(tab) {
+    const cities = DATA.cities.slice(0, 12).map(function (city) { return city.name; });
+    const city = cities[0] || '上海';
+    if (tab === 'rental') {
+      return '<div class="sp-hero sp-hero-car"><div class="sp-hero-copy"><h2>自驾租车</h2><p>免押 · 送车上门</p></div>' +
+        '<form class="sp-form" id="carForm" novalidate>' +
+          '<div class="sp-field"><label>取车城市</label><select id="carCity">' + cities.map(function (name) { return '<option>' + esc(name) + '</option>'; }).join('') + '</select></div>' +
+          '<div class="sp-field"><label>取车日期</label><input id="carDate" type="date" value="' + dateKey(addDays(TODAY, 1)) + '"></div>' +
+          '<div class="sp-field"><label>租期(天)</label><input id="carDays" type="number" min="1" max="30" value="3"></div>' +
+          '<button class="sp-search" type="submit"><svg><use href="#i-search"></use></svg>查询车辆</button>' +
+        '</form></div>';
+    }
+    const isTaxi = tab === 'taxi';
+    return '<div class="sp-hero sp-hero-car"><div class="sp-hero-copy"><h2>' + (isTaxi ? '即时打车' : tab === 'train' ? '接送火车' : '接送机') + '</h2><p>' + (isTaxi ? '一键呼叫 · 多种车型' : '航班/车次延误免费等') + '</p></div>' +
+      '<form class="sp-form" id="carForm" novalidate>' +
+        '<div class="sp-field"><label>城市</label><select id="carCity">' + cities.map(function (name) { return '<option>' + esc(name) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="sp-field"><label>' + (isTaxi ? '上车点' : tab === 'train' ? '火车站' : '机场') + '</label><input id="carFrom" type="text" value="' + (isTaxi ? '人民广场' : tab === 'train' ? city + '站' : city + (tab === 'train' ? '' : '机场')) + '"></div>' +
+        '<div class="sp-field"><label>' + (isTaxi ? '下车点' : '送达地点') + '</label><input id="carTo" type="text" value="' + (isTaxi ? '陆家嘴' : '市中心酒店') + '"></div>' +
+        (isTaxi ? '' : '<div class="sp-field"><label>用车时间</label><input id="carDate" type="date" value="' + dateKey(addDays(TODAY, 1)) + '"></div>') +
+        '<button class="sp-search" type="submit"><svg><use href="#i-search"></use></svg>' + (isTaxi ? '呼叫' : '查询') + '</button>' +
+      '</form></div>';
+  }
+
+  function runCarSearch() {
+    const tab = state.carTab || 'airport';
+    const box = $('#carResults');
+    const city = $('#carCity').value;
+    if (tab === 'rental') {
+      const days = Math.max(1, Math.min(30, Number($('#carDays').value) || 1));
+      const date = $('#carDate').value || dateKey(addDays(TODAY, 1));
+      state.carResults = EXTRA.rentalCars().map(function (car) { return { ...car, days, date, city, price: car.perDay * days }; });
+      box.innerHTML = '<div class="sp-results-head"><strong>' + esc(city) + ' · 租期 ' + days + ' 天</strong><span>' + state.carResults.length + ' 款车型</span></div>' +
+        '<div class="sp-grid">' + state.carResults.map(rentalCardHtml).join('') + '</div>';
+    } else {
+      const from = $('#carFrom').value.trim() || city;
+      const to = $('#carTo').value.trim() || '市中心';
+      const options = tab === 'taxi' ? EXTRA.estimateTaxi({ city, from, to }) : EXTRA.estimateTransfer({ city, from, to, service: tab });
+      state.carResults = options.map(function (item) { return { ...item, city, from, to, tab }; });
+      box.innerHTML = '<div class="sp-results-head"><strong>' + esc(from) + ' → ' + esc(to) + '</strong><span>约 ' + options[0].km + ' 公里 · ' + options[0].minutes + ' 分钟</span></div>' +
+        '<div class="sp-list">' + state.carResults.map(transferRowHtml).join('') + '</div>';
+    }
+    box.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-car-book]');
+      if (!button) return;
+      const item = (state.carResults || []).find(function (row) { return row.id === button.getAttribute('data-car-book'); });
+      if (item) bookCar(item);
+    });
+  }
+
+  function rentalCardHtml(car) {
+    return '<article class="sp-card-car">' +
+      '<div class="sp-car-art"><svg><use href="#i-car"></use></svg></div>' +
+      '<strong>' + esc(car.name) + '</strong><span class="sp-tag">' + esc(car.tag) + '</span>' +
+      '<p>' + car.seats + '座 · ' + car.luggage + '行李 · ' + esc(car.transmission) + '</p>' +
+      '<div class="sp-row-price"><strong><em>¥</em>' + money(car.price) + '<small>/' + car.days + '天</small></strong><button class="primary-button small" type="button" data-car-book="' + esc(car.id) + '">预订</button></div>' +
+    '</article>';
+  }
+
+  function transferRowHtml(item) {
+    return '<article class="sp-row sp-row-car">' +
+      '<div class="sp-car-art small"><svg><use href="#i-car"></use></svg></div>' +
+      '<div class="sp-row-info"><strong>' + esc(item.name) + '</strong><span>' + esc(item.cars) + '</span><span class="sp-seats">' + item.seats + '座 · ' + item.luggage + '行李</span></div>' +
+      '<div class="sp-row-meta"><span class="sp-tag">约 ' + item.minutes + ' 分钟</span></div>' +
+      '<div class="sp-row-price"><strong><em>¥</em>' + money(item.price) + '</strong><button class="primary-button small" type="button" data-car-book="' + esc(item.id) + '">' + (item.tab === 'taxi' ? '呼叫' : '预订') + '</button></div>' +
+    '</article>';
+  }
+
+  function bookCar(item) {
+    const rental = Boolean(item.perDay);
+    openBooking({
+      kind: 'car',
+      kindLabel: rental ? '租车订单' : '用车订单',
+      title: rental ? item.name + ' · ' + item.city : item.name + ' · ' + item.from + ' → ' + item.to,
+      subtitle: rental ? item.tag + ' · ' + item.transmission : item.cars,
+      lines: rental
+        ? [{ label: '取车城市', value: item.city }, { label: '取车日期', value: item.date }, { label: '租期', value: item.days + ' 天' }, { label: '车型', value: item.name }]
+        : [{ label: '城市', value: item.city }, { label: '上车点', value: item.from }, { label: '下车点', value: item.to }, { label: '车型', value: item.name }],
+      total: item.price,
+      totalNote: rental ? '¥' + money(item.perDay) + '/天 × ' + item.days + '天' : '一口价 · 含高速费',
+      dateLabel: rental ? item.date : (item.tab === 'taxi' ? '即时用车' : '预约用车'),
+      guestLabel: item.seats + '座 · ' + item.luggage + '行李',
+      meta: [item.name],
+      details: { carId: item.id, rental, city: item.city }
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Travel packages and guides                                          */
+  /* ------------------------------------------------------------------ */
+
+  function renderTravelPage() {
+    state.travelFilter = state.travelFilter || { dest: '', days: '', type: '', keyword: '', sort: 'recommended' };
+    const filter = state.travelFilter;
+    const dests = packageDests();
+    servicePageShell('旅游度假', '跟团游 · 自由行 · 周边游 · 本地模拟套餐',
+      '<div class="sp-hero sp-hero-travel">' +
+        '<div class="sp-hero-copy"><h2>去哪儿玩</h2><p>精选目的地 · 一价全包更省心</p></div>' +
+        '<form class="sp-form" id="travelForm" novalidate>' +
+          '<div class="sp-field"><label>目的地</label><select id="travelDest"><option value="">全部目的地</option>' + dests.map(function (name) { return '<option' + (filter.dest === name ? ' selected' : '') + '>' + esc(name) + '</option>'; }).join('') + '</select></div>' +
+          '<div class="sp-field"><label>行程天数</label><select id="travelDays"><option value="">不限</option><option value="short"' + (filter.days === 'short' ? ' selected' : '') + '>1-3天</option><option value="mid"' + (filter.days === 'mid' ? ' selected' : '') + '>4-5天</option><option value="long"' + (filter.days === 'long' ? ' selected' : '') + '>6天以上</option></select></div>' +
+          '<div class="sp-field"><label>关键词</label><input id="travelKeyword" type="text" placeholder="景点 / 主题" value="' + esc(filter.keyword) + '"></div>' +
+          '<button class="sp-search" type="submit"><svg><use href="#i-search"></use></svg>搜索</button>' +
+        '</form>' +
+      '</div>' +
+      '<div class="sp-filterbar">' +
+        '<div class="sp-tabs" id="travelType">' +
+          [['', '全部'], ['group', '跟团游'], ['free', '自由行'], ['nearby', '周边游']].map(function (pair) {
+            return '<button type="button" data-travel-type="' + pair[0] + '" class="' + (filter.type === pair[0] ? 'is-active' : '') + '">' + pair[1] + '</button>';
+          }).join('') +
+        '</div>' +
+        '<select id="travelSort" class="sp-sort"><option value="recommended"' + (filter.sort === 'recommended' ? ' selected' : '') + '>综合推荐</option><option value="price"' + (filter.sort === 'price' ? ' selected' : '') + '>价格优先</option><option value="score"' + (filter.sort === 'score' ? ' selected' : '') + '>评分优先</option></select>' +
+      '</div>' +
+      '<div class="sp-results" id="travelResults"></div>');
+    $('#travelForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      filter.dest = $('#travelDest').value;
+      filter.days = $('#travelDays').value;
+      filter.keyword = $('#travelKeyword').value.trim();
+      runTravelSearch();
+    });
+    $('#travelType').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-travel-type]');
+      if (!button) return;
+      filter.type = button.getAttribute('data-travel-type');
+      $$('#travelType button').forEach(function (item) { item.classList.toggle('is-active', item === button); });
+      runTravelSearch();
+    });
+    $('#travelSort').addEventListener('change', function () {
+      filter.sort = $('#travelSort').value;
+      runTravelSearch();
+    });
+    runTravelSearch();
+  }
+
+  function runTravelSearch() {
+    const filter = state.travelFilter || {};
+    const list = searchPackages(filter);
+    state.travelResults = list;
+    const box = $('#travelResults');
+    if (!list.length) {
+      box.innerHTML = '<div class="sp-empty">没有符合条件的套餐，试试放宽目的地或天数。</div>';
+      return;
+    }
+    box.innerHTML = '<div class="sp-results-head"><strong>为你找到 ' + list.length + ' 个套餐</strong><span>本地模拟价格 · 含税费</span></div>' +
+      '<div class="sp-grid sp-grid-package">' + list.map(packageCardHtml).join('') + '</div>';
+    box.addEventListener('click', function (event) {
+      const card = event.target.closest('[data-package-id]');
+      if (!card) return;
+      openPackageDetail(packageById(card.getAttribute('data-package-id')));
+    });
+  }
+
+  function packageCardHtml(item) {
+    const typeLabel = item.type === 'group' ? '跟团游' : item.type === 'free' ? '自由行' : '周边游';
+    return '<article class="sp-package" data-package-id="' + esc(item.id) + '" tabindex="0" role="button">' +
+      '<div class="sp-package-media"><img src="' + esc(item.image) + '" alt="' + esc(item.dest) + '" loading="lazy"><span class="sp-package-type">' + typeLabel + '</span><span class="sp-package-days">' + item.days + '天' + (item.days - 1) + '晚</span></div>' +
+      '<div class="sp-package-body">' +
+        '<strong>' + esc(item.title) + '</strong>' +
+        '<div class="sp-package-tags">' + item.themes.map(function (tag) { return '<span class="sp-tag">' + esc(tag) + '</span>'; }).join('') + '</div>' +
+        '<div class="sp-package-score"><span class="score-badge">' + item.score.toFixed(1) + '</span><span>' + money(item.reviews) + ' 条点评</span></div>' +
+        '<div class="sp-package-price"><strong><em>¥</em>' + money(item.price) + '</strong><span>¥' + money(item.originalPrice) + '</span><em class="sp-package-qi">起</em></div>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function openPackageDetail(item) {
+    if (!item) return;
+    const typeLabel = item.type === 'group' ? '跟团游' : item.type === 'free' ? '自由行' : '周边游';
+    const html = '<div class="modal-body">' +
+      '<div class="sp-package-media" style="height:200px;border-radius:12px"><img src="' + esc(item.image) + '" alt="' + esc(item.dest) + '"><span class="sp-package-type">' + typeLabel + '</span><span class="sp-package-days">' + item.days + '天' + (item.days - 1) + '晚</span></div>' +
+      '<div style="margin-top:16px"><h2 id="modalTitle" style="font-size:21px">' + esc(item.title) + '</h2>' +
+      '<p style="margin-top:6px;font-size:12px;color:#77839a">' + esc(item.dest) + ' · ' + item.themes.join(' / ') + ' · 评分 ' + item.score.toFixed(1) + '</p></div>' +
+      '<div class="detail-tag-line">' + item.highlights.map(function (tag) { return '<span class="detail-tag is-accent">' + esc(tag) + '</span>'; }).join('') + '</div>' +
+      '<div class="detail-section"><h3>行程概览</h3><div class="sp-itinerary">' +
+        item.itinerary.map(function (day) {
+          return '<div class="sp-itinerary-day"><span class="sp-day-num">D' + day.day + '</span><div><strong>' + esc(day.title) + '</strong><p>' + esc(day.desc) + '</p></div></div>';
+        }).join('') +
+      '</div></div>' +
+      '<div class="detail-section"><h3>费用包含</h3><p style="font-size:12px;line-height:1.9;color:#55657c">' + item.includes.map(esc).join(' · ') + '</p></div>' +
+      '<div class="booking-total"><span>套餐参考价<br><small style="font-size:10px;color:#9aa6b6">每人 · 本地模拟</small></span><strong><em>¥</em>' + money(item.price) + '</strong></div>' +
+      '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>关闭</button><button class="primary-button" type="button" data-package-book="' + esc(item.id) + '">立即预订</button></div>' +
+      '<p class="booking-hint">本地模拟订单，不会产生真实费用或出行安排。</p>' +
+    '</div>';
+    const modal = openModal(html, { className: 'modal-wide' });
+    modal.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-package-book]');
+      if (!button) return;
+      bookPackage(packageById(button.getAttribute('data-package-book')));
+    });
+  }
+
+  function bookPackage(item) {
+    if (!item) return;
+    openBooking({
+      kind: 'travel',
+      kindLabel: '旅游订单',
+      title: item.title,
+      subtitle: item.dest + ' · ' + item.days + '天' + (item.days - 1) + '晚 · ' + item.themes.join('/'),
+      lines: [
+        { label: '目的地', value: item.dest },
+        { label: '行程天数', value: item.days + '天' + (item.days - 1) + '晚' },
+        { label: '出游类型', value: item.type === 'group' ? '跟团游' : item.type === 'free' ? '自由行' : '周边游' },
+        { label: '费用包含', value: item.includes.slice(0, 3).join('、') }
+      ],
+      total: item.price,
+      totalNote: '¥' + money(item.price) + ' × 1位成人',
+      dateLabel: dateKey(addDays(TODAY, 7)) + ' 出发',
+      guestLabel: '1位成人',
+      meta: [item.dest, item.days + '天'],
+      details: { packageId: item.id, dest: item.dest, days: item.days }
+    });
+  }
+
+  function renderGuidePage() {
+    state.guideTab = state.guideTab || 'article';
+    state.guideCity = state.guideCity == null ? '' : state.guideCity;
+    const tab = state.guideTab;
+    const cities = DATA.cities.slice(0, 12).map(function (city) { return city.name; });
+    servicePageShell('攻略·景点', '旅行者真实分享 · 当地必玩清单',
+      '<div class="sp-filterbar">' +
+        '<div class="sp-tabs" id="guideTabs">' +
+          '<button type="button" data-guide-tab="article" class="' + (tab === 'article' ? 'is-active' : '') + '">攻略</button>' +
+          '<button type="button" data-guide-tab="spot" class="' + (tab === 'spot' ? 'is-active' : '') + '">景点</button>' +
+        '</div>' +
+        '<select id="guideCity" class="sp-sort"><option value="">全部城市</option>' + cities.map(function (name) { return '<option' + (state.guideCity === name ? ' selected' : '') + '>' + esc(name) + '</option>'; }).join('') + '</select>' +
+      '</div>' +
+      '<div class="sp-results" id="guideResults"></div>');
+    $('#guideTabs').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-guide-tab]');
+      if (!button) return;
+      state.guideTab = button.getAttribute('data-guide-tab');
+      $$('#guideTabs button').forEach(function (item) { item.classList.toggle('is-active', item === button); });
+      runGuideSearch();
+    });
+    $('#guideCity').addEventListener('change', function () {
+      state.guideCity = $('#guideCity').value;
+      runGuideSearch();
+    });
+    runGuideSearch();
+  }
+
+  function runGuideSearch() {
+    const box = $('#guideResults');
+    const city = state.guideCity || '';
+    if (state.guideTab === 'spot') {
+      const spotCity = city || '上海';
+      const spots = DATA.getAttractions(spotCity);
+      state.guideResults = spots;
+      box.innerHTML = '<div class="sp-results-head"><strong>' + esc(spotCity) + ' 必玩景点</strong><span>' + spots.length + ' 个项目</span></div>' +
+        '<div class="sp-list">' + spots.map(function (spot) {
+          return '<article class="sp-row sp-row-spot" data-spot-id="' + esc(spot.id) + '" tabindex="0" role="button">' +
+            '<div class="sp-spot-art" style="background:' + esc(spot.gradient) + '">' + svgIcon(spot.icon) + '</div>' +
+            '<div class="sp-row-info"><strong>' + esc(spot.name) + '</strong><span>' + esc(spot.subtitle) + ' · ' + esc(spot.duration) + '</span><span class="sp-seats">评分 ' + spot.rating.toFixed(1) + ' · ' + money(spot.sold) + '人已订</span></div>' +
+            '<div class="sp-row-meta">' + spot.tags.map(function (tag) { return '<span class="sp-tag">' + esc(tag) + '</span>'; }).join('') + '</div>' +
+            '<div class="sp-row-price"><strong><em>¥</em>' + money(spot.price) + '</strong><span class="sp-seats">查看</span></div>' +
+          '</article>';
+        }).join('') + '</div>';
+      box.addEventListener('click', function (event) {
+        const row = event.target.closest('[data-spot-id]');
+        if (!row) return;
+        const spot = (state.guideResults || []).find(function (item) { return item.id === row.getAttribute('data-spot-id'); });
+        if (spot) openTicketDetail(spot);
+      });
+      return;
+    }
+    let list = guides(city);
+    if (!list.length) list = guides();
+    state.guideResults = list;
+    box.innerHTML = '<div class="sp-results-head"><strong>' + esc(city || '全部目的地') + ' 旅行攻略</strong><span>' + list.length + ' 篇分享</span></div>' +
+      '<div class="sp-grid sp-grid-guide">' + list.map(function (guide) {
+        return '<article class="sp-guide" data-guide-id="' + esc(guide.id) + '" tabindex="0" role="button">' +
+          '<div class="sp-guide-media"><img src="' + esc(guide.image) + '" alt="' + esc(guide.dest) + '" loading="lazy"></div>' +
+          '<div class="sp-guide-body"><strong>' + esc(guide.title) + '</strong><p>' + esc(guide.summary) + '</p>' +
+          '<div class="sp-guide-meta"><span class="sp-guide-author"><i>' + esc(guide.author.slice(0, 1)) + '</i>' + esc(guide.author) + '</span><span>' + money(guide.views) + ' 浏览 · ' + money(guide.likes) + ' 赞</span></div></div>' +
+        '</article>';
+      }).join('') + '</div>';
+    box.addEventListener('click', function (event) {
+      const card = event.target.closest('[data-guide-id]');
+      if (!card) return;
+      openGuideDetail(guideById(card.getAttribute('data-guide-id')));
+    });
+  }
+
+  function openGuideDetail(guide) {
+    if (!guide) return;
+    state.guideLiked = state.guideLiked || {};
+    const liked = Boolean(state.guideLiked[guide.id]);
+    const html = '<div class="modal-body">' +
+      '<div class="sp-guide-media" style="height:210px;border-radius:12px"><img src="' + esc(guide.image) + '" alt="' + esc(guide.dest) + '"></div>' +
+      '<div style="margin-top:16px"><h2 id="modalTitle" style="font-size:21px">' + esc(guide.title) + '</h2>' +
+      '<p style="margin-top:6px;font-size:12px;color:#77839a">' + esc(guide.author) + ' · ' + esc(guide.dest) + ' · ' + money(guide.views) + ' 浏览</p></div>' +
+      '<div class="detail-tag-line">' + guide.tags.map(function (tag) { return '<span class="detail-tag is-accent">' + esc(tag) + '</span>'; }).join('') + '</div>' +
+      guide.sections.map(function (section) {
+        return '<div class="detail-section"><h3>' + esc(section.h) + '</h3>' + section.p.map(function (paragraph) { return '<p style="font-size:13px;line-height:1.9;color:#55657c;margin-top:6px">' + esc(paragraph) + '</p>'; }).join('') + '</div>';
+      }).join('') +
+      '<div class="detail-section"><h3>实用贴士</h3><ul class="sp-tips">' + guide.tips.map(function (tip) { return '<li>' + esc(tip) + '</li>'; }).join('') + '</ul></div>' +
+      '<div class="booking-submit-row"><button class="secondary-button" type="button" data-guide-like="' + esc(guide.id) + '">' + (liked ? '已赞 ♥' : '点赞 ♥') + '</button><button class="primary-button" type="button" data-close-modal>收起攻略</button></div>' +
+    '</div>';
+    const modal = openModal(html, { className: 'modal-wide' });
+    modal.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-guide-like]');
+      if (!button) return;
+      const id = button.getAttribute('data-guide-like');
+      state.guideLiked[id] = !state.guideLiked[id];
+      button.textContent = state.guideLiked[id] ? '已赞 ♥' : '点赞 ♥';
+      toast(state.guideLiked[id] ? '已点赞这篇攻略' : '已取消点赞');
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Global shop and gift cards                                          */
+  /* ------------------------------------------------------------------ */
+
+  function cartItems() {
+    state.cart = state.cart || [];
+    return state.cart;
+  }
+
+  function cartCount() {
+    return cartItems().reduce(function (total, item) { return total + item.qty; }, 0);
+  }
+
+  function cartTotal() {
+    return cartItems().reduce(function (total, item) {
+      const product = productById(item.id);
+      return total + (product ? product.price * item.qty : 0);
+    }, 0);
+  }
+
+  function addToCart(id, qty) {
+    const items = cartItems();
+    const existing = items.find(function (item) { return item.id === id; });
+    if (existing) existing.qty = Math.min(99, existing.qty + qty);
+    else items.push({ id, qty: Math.min(99, qty) });
+    syncCartBadge();
+  }
+
+  function syncCartBadge() {
+    const badge = $('#shopCartCount');
+    if (badge) badge.textContent = String(cartCount());
+  }
+
+  function renderShopPage() {
+    state.shopFilter = state.shopFilter || { category: '', keyword: '', sort: 'recommended' };
+    const filter = state.shopFilter;
+    servicePageShell('全球购', '免税直采 · 环球好物 · 本地模拟商城',
+      '<div class="sp-hero sp-hero-shop">' +
+        '<div class="sp-hero-copy"><h2>全球好物一站购</h2><p>免税美妆 · 数码家电 · 环球美食</p></div>' +
+        '<form class="sp-form" id="shopForm" novalidate>' +
+          '<div class="sp-field" style="flex:3"><label>搜索商品</label><input id="shopKeyword" type="text" placeholder="商品 / 品牌 / 标签" value="' + esc(filter.keyword) + '"></div>' +
+          '<button class="sp-search" type="submit"><svg><use href="#i-search"></use></svg>搜索</button>' +
+        '</form>' +
+      '</div>' +
+      '<div class="sp-filterbar">' +
+        '<div class="sp-tabs" id="shopCats">' + SHOP_CATEGORIES.map(function (cat) {
+          return '<button type="button" data-shop-cat="' + cat.id + '" class="' + (filter.category === cat.id ? 'is-active' : '') + '">' + cat.label + '</button>';
+        }).join('') + '</div>' +
+        '<div class="sp-shop-tools">' +
+          '<select id="shopSort" class="sp-sort"><option value="recommended"' + (filter.sort === 'recommended' ? ' selected' : '') + '>综合</option><option value="price"' + (filter.sort === 'price' ? ' selected' : '') + '>价格</option><option value="sold"' + (filter.sort === 'sold' ? ' selected' : '') + '>销量</option></select>' +
+          '<button class="sp-cart" type="button" id="shopCartBtn"><svg><use href="#i-gift"></use></svg>购物车<span id="shopCartCount">' + cartCount() + '</span></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sp-results" id="shopResults"></div>');
+    $('#shopForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      filter.keyword = $('#shopKeyword').value.trim();
+      runShopSearch();
+    });
+    $('#shopCats').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-shop-cat]');
+      if (!button) return;
+      filter.category = button.getAttribute('data-shop-cat');
+      $$('#shopCats button').forEach(function (item) { item.classList.toggle('is-active', item === button); });
+      runShopSearch();
+    });
+    $('#shopSort').addEventListener('change', function () {
+      filter.sort = $('#shopSort').value;
+      runShopSearch();
+    });
+    $('#shopCartBtn').addEventListener('click', openCartModal);
+    runShopSearch();
+  }
+
+  function runShopSearch() {
+    const list = searchProducts(state.shopFilter || {});
+    state.shopResults = list;
+    const box = $('#shopResults');
+    if (!list.length) {
+      box.innerHTML = '<div class="sp-empty">没有找到相关商品，换个关键词试试。</div>';
+      return;
+    }
+    box.innerHTML = '<div class="sp-results-head"><strong>' + list.length + ' 件好物</strong><span>本地模拟价格 · 免税直采</span></div>' +
+      '<div class="sp-grid sp-grid-shop">' + list.map(function (product) {
+        return '<article class="sp-product" data-product-id="' + esc(product.id) + '" tabindex="0" role="button">' +
+          '<div class="sp-product-art" style="background:' + product.gradient + '">' + svgIcon(product.icon) + '<span class="sp-product-tag">' + esc(product.tag) + '</span></div>' +
+          '<div class="sp-product-body"><strong>' + esc(product.name) + '</strong><span class="sp-product-brand">' + esc(product.brand) + '</span>' +
+          '<div class="sp-package-score"><span class="score-badge">' + product.rating.toFixed(1) + '</span><span>' + money(product.sold) + ' 人已购</span></div>' +
+          '<div class="sp-package-price"><strong><em>¥</em>' + money(product.price) + '</strong><span>¥' + money(product.originalPrice) + '</span></div></div>' +
+        '</article>';
+      }).join('') + '</div>';
+    box.addEventListener('click', function (event) {
+      const card = event.target.closest('[data-product-id]');
+      if (!card) return;
+      openProductDetail(productById(card.getAttribute('data-product-id')));
+    });
+  }
+
+  function openProductDetail(product) {
+    if (!product) return;
+    let qty = 1;
+    const html = '<div class="modal-body">' +
+      '<div class="sp-product-art" style="height:190px;border-radius:12px;background:' + product.gradient + '">' + svgIcon(product.icon) + '<span class="sp-product-tag">' + esc(product.tag) + '</span></div>' +
+      '<div style="margin-top:16px"><h2 id="modalTitle" style="font-size:21px">' + esc(product.name) + '</h2>' +
+      '<p style="margin-top:6px;font-size:12px;color:#77839a">' + esc(product.brand) + ' · 评分 ' + product.rating.toFixed(1) + ' · ' + money(product.sold) + ' 人已购</p></div>' +
+      '<div class="detail-section"><h3>商品说明</h3><p style="font-size:13px;line-height:1.9;color:#55657c">本地模拟商城商品，展示免税直采价格与规格，仅用于演示浏览、加购与结算流程，不会产生真实交易或发货。</p></div>' +
+      '<div class="sp-qty-row"><span>数量</span><div class="sp-stepper"><button type="button" data-qty-minus>−</button><input id="productQty" type="text" value="1" readonly><button type="button" data-qty-plus>＋</button></div></div>' +
+      '<div class="booking-total"><span>小计<br><small style="font-size:10px;color:#9aa6b6">含税费 · 本地模拟</small></span><strong id="productSubtotal"><em>¥</em>' + money(product.price) + '</strong></div>' +
+      '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>关闭</button><button class="primary-button" type="button" data-add-cart="' + esc(product.id) + '">加入购物车</button></div>' +
+    '</div>';
+    const modal = openModal(html);
+    const qtyInput = $('#productQty', modal);
+    const subtotal = $('#productSubtotal', modal);
+    function refresh() {
+      qtyInput.value = String(qty);
+      subtotal.innerHTML = '<em>¥</em>' + money(product.price * qty);
+    }
+    modal.addEventListener('click', function (event) {
+      if (event.target.closest('[data-qty-minus]')) { qty = Math.max(1, qty - 1); refresh(); return; }
+      if (event.target.closest('[data-qty-plus]')) { qty = Math.min(99, qty + 1); refresh(); return; }
+      const add = event.target.closest('[data-add-cart]');
+      if (add) {
+        addToCart(add.getAttribute('data-add-cart'), qty);
+        closeModal();
+        toast('已加入购物车');
+      }
+    });
+  }
+
+  function openCartModal() {
+    const modal = openModal('<div class="modal-body"><div class="modal-head" style="padding:0 0 12px"><h2 id="modalTitle">购物车</h2><p>本地模拟结算，不产生真实交易。</p></div><div id="cartBody"></div></div>');
+    function render() {
+      const items = cartItems();
+      const body = $('#cartBody', modal);
+      if (!items.length) {
+        body.innerHTML = '<div class="sp-empty">购物车还是空的，去挑几件好物吧。</div>';
+        return;
+      }
+      body.innerHTML = '<div class="sp-cart-list">' + items.map(function (item) {
+        const product = productById(item.id);
+        if (!product) return '';
+        return '<div class="sp-cart-row">' +
+          '<div class="sp-cart-art" style="background:' + product.gradient + '">' + svgIcon(product.icon) + '</div>' +
+          '<div class="sp-cart-info"><strong>' + esc(product.name) + '</strong><span>¥' + money(product.price) + '</span></div>' +
+          '<div class="sp-stepper"><button type="button" data-cart-minus="' + esc(item.id) + '">−</button><input type="text" value="' + item.qty + '" readonly><button type="button" data-cart-plus="' + esc(item.id) + '">＋</button></div>' +
+          '<button class="sp-cart-remove" type="button" data-cart-remove="' + esc(item.id) + '" aria-label="移除"><svg><use href="#i-trash"></use></svg></button>' +
+        '</div>';
+      }).join('') + '</div>' +
+      '<div class="booking-total"><span>合计（' + cartCount() + ' 件）</span><strong><em>¥</em>' + money(cartTotal()) + '</strong></div>' +
+      '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>继续逛</button><button class="primary-button" type="button" data-cart-checkout>去结算</button></div>';
+    }
+    render();
+    modal.addEventListener('click', function (event) {
+      const minus = event.target.closest('[data-cart-minus]');
+      const plus = event.target.closest('[data-cart-plus]');
+      const remove = event.target.closest('[data-cart-remove]');
+      if (minus || plus) {
+        const id = (minus || plus).getAttribute(minus ? 'data-cart-minus' : 'data-cart-plus');
+        const item = cartItems().find(function (entry) { return entry.id === id; });
+        if (item) item.qty = minus ? Math.max(1, item.qty - 1) : Math.min(99, item.qty + 1);
+        syncCartBadge();
+        render();
+        return;
+      }
+      if (remove) {
+        const id = remove.getAttribute('data-cart-remove');
+        state.cart = cartItems().filter(function (entry) { return entry.id !== id; });
+        syncCartBadge();
+        render();
+        return;
+      }
+      if (event.target.closest('[data-cart-checkout]')) {
+        checkoutCart();
+      }
+    });
+  }
+
+  function checkoutCart() {
+    const items = cartItems().filter(function (item) { return productById(item.id); });
+    if (!items.length) { toast('购物车为空'); return; }
+    const lines = items.map(function (item) {
+      const product = productById(item.id);
+      return { label: product.name, value: '×' + item.qty + ' · ¥' + money(product.price * item.qty) };
+    });
+    closeModal();
+    openBooking({
+      kind: 'shop',
+      kindLabel: '全球购订单',
+      title: '全球购 · ' + cartCount() + ' 件商品',
+      subtitle: '免税直采 · 本地模拟发货',
+      lines,
+      total: cartTotal(),
+      totalNote: '共 ' + cartCount() + ' 件 · 含税费',
+      dateLabel: '预计 3-7 日送达',
+      guestLabel: cartCount() + '件商品',
+      meta: ['全球购'],
+      details: { items: items.map(function (item) { return { id: item.id, qty: item.qty }; }) }
+    });
+  }
+
+  function renderGiftPage() {
+    state.gift = state.gift || { denom: 200, theme: 'classic', qty: 1, message: '' };
+    const gift = state.gift;
+    servicePageShell('礼品卡', '送旅行 · 送心意 · 全国通用',
+      '<div class="sp-gift-layout">' +
+        '<div class="sp-gift-preview" id="giftPreview"></div>' +
+        '<div class="sp-gift-form">' +
+          '<div class="sp-gift-block"><label>选择面额</label><div class="sp-denoms" id="giftDenoms">' + GIFT_DENOMS.map(function (value) {
+            return '<button type="button" data-gift-denom="' + value + '" class="' + (gift.denom === value ? 'is-active' : '') + '">¥' + value + '</button>';
+          }).join('') + '</div></div>' +
+          '<div class="sp-gift-block"><label>选择卡面</label><div class="sp-themes" id="giftThemes">' + GIFT_THEMES.map(function (theme) {
+            return '<button type="button" data-gift-theme="' + theme.id + '" class="' + (gift.theme === theme.id ? 'is-active' : '') + '" style="background:' + theme.gradient + '" title="' + esc(theme.name) + '"></button>';
+          }).join('') + '</div></div>' +
+          '<div class="sp-gift-block"><label>数量</label><div class="sp-stepper"><button type="button" data-gift-minus>−</button><input id="giftQty" type="text" value="' + gift.qty + '" readonly><button type="button" data-gift-plus>＋</button></div></div>' +
+          '<div class="sp-gift-block"><label>祝福语（选填）</label><textarea id="giftMessage" class="sp-gift-message" rows="2" placeholder="写下你想说的话">' + esc(gift.message) + '</textarea></div>' +
+          '<div class="booking-total"><span>应付总额</span><strong id="giftTotal"><em>¥</em>' + money(gift.denom * gift.qty) + '</strong></div>' +
+          '<div class="booking-submit-row"><button class="primary-button" type="button" id="giftBuy">立即购买</button></div>' +
+          '<p class="booking-hint">礼品卡为本地模拟凭证，不产生真实充值或兑付。</p>' +
+        '</div>' +
+      '</div>');
+    function refresh() {
+      const theme = GIFT_THEMES.find(function (item) { return item.id === gift.theme; }) || GIFT_THEMES[0];
+      $('#giftPreview').innerHTML =
+        '<div class="sp-gift-card" style="background:' + theme.gradient + '">' +
+          '<div class="sp-gift-card-head"><span>橙程礼品卡</span><svg><use href="#i-gift"></use></svg></div>' +
+          '<strong>¥' + gift.denom + '</strong>' +
+          '<p>' + esc(gift.message || '一场说走就走的旅行') + '</p>' +
+          '<span class="sp-gift-card-no">NO. ' + String(gift.denom).padStart(4, '0') + ' · ' + esc(theme.name) + '</span>' +
+        '</div>';
+      $('#giftQty').value = String(gift.qty);
+      $('#giftTotal').innerHTML = '<em>¥</em>' + money(gift.denom * gift.qty);
+    }
+    refresh();
+    $('#giftDenoms').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-gift-denom]');
+      if (!button) return;
+      gift.denom = Number(button.getAttribute('data-gift-denom'));
+      $$('#giftDenoms button').forEach(function (item) { item.classList.toggle('is-active', item === button); });
+      refresh();
+    });
+    $('#giftThemes').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-gift-theme]');
+      if (!button) return;
+      gift.theme = button.getAttribute('data-gift-theme');
+      $$('#giftThemes button').forEach(function (item) { item.classList.toggle('is-active', item === button); });
+      refresh();
+    });
+    $('#servicePage').addEventListener('click', function (event) {
+      if (event.target.closest('[data-gift-minus]')) { gift.qty = Math.max(1, gift.qty - 1); refresh(); return; }
+      if (event.target.closest('[data-gift-plus]')) { gift.qty = Math.min(20, gift.qty + 1); refresh(); return; }
+      if (event.target.closest('#giftBuy')) { purchaseGift(); }
+    });
+    $('#giftMessage').addEventListener('input', function () {
+      gift.message = $('#giftMessage').value;
+      refresh();
+    });
+  }
+
+  function purchaseGift() {
+    const gift = state.gift || { denom: 200, theme: 'classic', qty: 1, message: '' };
+    const theme = GIFT_THEMES.find(function (item) { return item.id === gift.theme; }) || GIFT_THEMES[0];
+    openBooking({
+      kind: 'gift',
+      kindLabel: '礼品卡订单',
+      title: '橙程礼品卡 ¥' + gift.denom + ' × ' + gift.qty,
+      subtitle: theme.name + ' 卡面 · 全国通用',
+      lines: [
+        { label: '面额', value: '¥' + gift.denom },
+        { label: '数量', value: gift.qty + ' 张' },
+        { label: '卡面', value: theme.name },
+        { label: '祝福语', value: gift.message || '一场说走就走的旅行' }
+      ],
+      total: gift.denom * gift.qty,
+      totalNote: '¥' + gift.denom + ' × ' + gift.qty + ' 张',
+      dateLabel: '即时发放（模拟）',
+      guestLabel: gift.qty + '张礼品卡',
+      meta: ['礼品卡', theme.name],
+      details: { denom: gift.denom, qty: gift.qty, theme: gift.theme }
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Finance, senior club, about and info pages                          */
+  /* ------------------------------------------------------------------ */
+
+  function renderFinancePage() {
+    state.finance = state.finance || { amount: 10000, term: 12, rate: 7.2 };
+    const finance = state.finance;
+    servicePageShell('橙程金融', '旅行消费金融 · 本地演示 · 不发起真实授信',
+      '<div class="sp-grid sp-grid-finance">' + FINANCE_PRODUCTS.map(function (product) {
+        return '<article class="sp-finance-card">' +
+          '<div class="sp-finance-art" style="background:' + product.gradient + '">' + svgIcon(product.icon) + '</div>' +
+          '<strong>' + esc(product.name) + '<span class="sp-tag">' + esc(product.tag) + '</span></strong>' +
+          '<p class="sp-finance-rate">' + esc(product.rate) + ' · ' + esc(product.limit) + '</p>' +
+          '<p class="sp-finance-desc">' + esc(product.desc) + '</p>' +
+          '<button class="secondary-button small" type="button" data-finance-detail="' + esc(product.id) + '">了解详情</button>' +
+        '</article>';
+      }).join('') + '</div>' +
+      '<div class="sp-calc">' +
+        '<h3>分期试算</h3>' +
+        '<div class="sp-calc-grid">' +
+          '<div class="sp-field"><label>借款金额（元）</label><input id="finAmount" type="range" min="1000" max="50000" step="500" value="' + finance.amount + '"><span id="finAmountLabel" class="sp-calc-value">¥' + money(finance.amount) + '</span></div>' +
+          '<div class="sp-field"><label>期数</label><select id="finTerm"><option value="3">3 期</option><option value="6">6 期</option><option value="12">12 期</option><option value="24">24 期</option></select></div>' +
+          '<div class="sp-field"><label>年化利率</label><select id="finRate"><option value="7.2">7.2%</option><option value="10.8">10.8%</option><option value="14.4">14.4%</option></select></div>' +
+        '</div>' +
+        '<div class="sp-calc-result"><div><span>每期应还</span><strong id="finMonthly">—</strong></div><div><span>总利息</span><strong id="finInterest">—</strong></div><div><span>本息合计</span><strong id="finTotal">—</strong></div></div>' +
+        '<p class="booking-hint">等额本息试算，仅为演示，不构成任何授信或借贷要约。</p>' +
+      '</div>');
+    $('#finTerm').value = String(finance.term);
+    $('#finRate').value = String(finance.rate);
+    function recalc() {
+      finance.amount = Number($('#finAmount').value);
+      finance.term = Number($('#finTerm').value);
+      finance.rate = Number($('#finRate').value);
+      $('#finAmountLabel').textContent = '¥' + money(finance.amount);
+      const monthlyRate = finance.rate / 100 / 12;
+      const factor = Math.pow(1 + monthlyRate, finance.term);
+      const monthly = monthlyRate === 0 ? finance.amount / finance.term : finance.amount * monthlyRate * factor / (factor - 1);
+      const total = monthly * finance.term;
+      $('#finMonthly').textContent = '¥' + money(Math.round(monthly * 100) / 100);
+      $('#finInterest').textContent = '¥' + money(Math.round((total - finance.amount) * 100) / 100);
+      $('#finTotal').textContent = '¥' + money(Math.round(total * 100) / 100);
+    }
+    ['finAmount', 'finTerm', 'finRate'].forEach(function (id) {
+      $('#' + id).addEventListener('input', recalc);
+      $('#' + id).addEventListener('change', recalc);
+    });
+    recalc();
+    $('#servicePage').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-finance-detail]');
+      if (!button) return;
+      const product = FINANCE_PRODUCTS.find(function (item) { return item.id === button.getAttribute('data-finance-detail'); });
+      if (!product) return;
+      openModal('<div class="modal-head"><h2 id="modalTitle">' + esc(product.name) + '</h2><p>' + esc(product.tag) + ' · 本地演示</p></div><div class="modal-body"><p style="font-size:13px;line-height:1.9;color:#55657c">' + esc(product.desc) + '</p><div class="detail-tag-line"><span class="detail-tag is-accent">' + esc(product.rate) + '</span><span class="detail-tag">' + esc(product.limit) + '</span></div><p class="demo-note">演示环境不发起真实授信、放款或扣款。</p><div class="booking-submit-row"><button class="primary-button" type="button" data-close-modal>知道了</button></div></div>');
+    });
+  }
+
+  function renderSeniorPage() {
+    servicePageShell('老友会', '银发慢旅行 · 子女放心托付',
+      '<div class="sp-hero sp-hero-senior"><div class="sp-hero-copy"><h2>把爸妈的旅行交给我们</h2><p>慢节奏 · 医护随行 · 子女代订</p></div></div>' +
+      '<div class="sp-grid sp-grid-benefit">' + SENIOR_BENEFITS.map(function (benefit) {
+        return '<div class="sp-benefit"><span class="sp-benefit-icon">' + svgIcon(benefit.icon) + '</span><strong>' + esc(benefit.title) + '</strong><p>' + esc(benefit.desc) + '</p></div>';
+      }).join('') + '</div>' +
+      '<div class="sp-results-head"><strong>精选慢游线路</strong><span>本地模拟 · 可报名咨询</span></div>' +
+      '<div class="sp-list">' + SENIOR_PACKAGES.map(function (item) {
+        return '<article class="sp-row sp-row-senior">' +
+          '<div class="sp-row-info"><strong>' + esc(item.title) + '</strong><span>' + esc(item.dest) + ' · ' + item.days + '日 · ' + esc(item.pace) + '</span><span class="sp-seats">' + item.features.map(esc).join(' · ') + '</span></div>' +
+          '<div class="sp-row-price"><strong><em>¥</em>' + money(item.price) + '</strong><button class="primary-button small" type="button" data-senior-signup="' + esc(item.id) + '">报名咨询</button></div>' +
+        '</article>';
+      }).join('') + '</div>');
+    $('#servicePage').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-senior-signup]');
+      if (!button) return;
+      const item = SENIOR_PACKAGES.find(function (entry) { return entry.id === button.getAttribute('data-senior-signup'); });
+      if (item) openSeniorSignup(item);
+    });
+  }
+
+  function openSeniorSignup(item) {
+    const html = '<div class="modal-head"><h2 id="modalTitle">报名咨询</h2><p>' + esc(item.title) + '</p></div>' +
+      '<div class="modal-body"><form id="seniorForm" novalidate>' +
+        '<div class="booking-form">' +
+          '<div class="form-field"><label for="seniorName">联系人姓名</label><input class="form-input" id="seniorName" type="text" placeholder="请输入姓名"></div>' +
+          '<div class="form-field"><label for="seniorPhone">手机号</label><input class="form-input" id="seniorPhone" type="tel" placeholder="用于接收行程通知"></div>' +
+          '<div class="form-field full"><label for="seniorNote">备注（健康状况/偏好）</label><textarea class="form-input" id="seniorNote" rows="2" placeholder="选填"></textarea></div>' +
+        '</div>' +
+        '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>取消</button><button class="primary-button" type="submit">提交报名</button></div>' +
+        '<p class="booking-hint">本地记录报名意向，不产生真实费用。</p>' +
+      '</form></div>';
+    const modal = openModal(html);
+    $('#seniorForm', modal).addEventListener('submit', function (event) {
+      event.preventDefault();
+      const name = $('#seniorName').value.trim();
+      const phone = $('#seniorPhone').value.trim();
+      if (name.length < 2) { toast('请填写联系人姓名'); return; }
+      if (!/^1[3-9]\d{9}$/.test(phone)) { toast('请输入有效的 11 位手机号'); return; }
+      state.seniorSignups = state.seniorSignups || [];
+      state.seniorSignups.push({ packageId: item.id, name, phone, note: $('#seniorNote').value.trim(), at: new Date().toISOString() });
+      closeModal();
+      toast('报名意向已记录，顾问将尽快联系（演示）');
+    });
+  }
+
+  function renderAboutPage() {
+    servicePageShell('关于橙程', '航空旅行一站式服务平台 · 本地演示项目',
+      '<div class="sp-stats">' + ABOUT_STATS.map(function (stat) {
+        return '<div class="sp-stat"><strong>' + esc(stat.value) + '</strong><span>' + esc(stat.label) + '</span></div>';
+      }).join('') + '</div>' +
+      '<div class="sp-card sp-about-card"><h3>项目简介</h3><p>橙程旅行是一个本地可运行的航空旅行一站式服务平台演示，整合机票、酒店、火车票、门票、汽车船票、用车、旅游度假与攻略等内容，提供动态票价、智能推荐、订单支付、在线值机、好友助力砍价与行程规划等完整交互。所有数据均为本地模拟，不连接真实旅行服务商。</p></div>' +
+      '<div class="sp-card sp-about-card"><h3>发展历程</h3><div class="sp-timeline">' + ABOUT_TIMELINE.map(function (entry) {
+        return '<div class="sp-timeline-item"><span class="sp-timeline-year">' + esc(entry.year) + '</span><p>' + esc(entry.text) + '</p></div>';
+      }).join('') + '</div></div>' +
+      '<div class="sp-card sp-about-card"><h3>联系我们</h3><p>演示邮箱：hello@octrip.demo · 本地服务地址：http://127.0.0.1:5180/</p><p>本项目仅用于教学与交互演示，与携程旅行网及任何真实旅行服务商无关联。</p></div>');
+  }
+
+  function renderInspirePage() {
+    const destinations = DATA.destinations || [];
+    servicePageShell('目的地灵感', '当季推荐 · 一键跳转同城酒店',
+      '<div class="sp-grid sp-grid-inspire">' + destinations.map(function (slide) {
+        return '<article class="sp-inspire-card">' +
+          '<div class="sp-inspire-media"><img src="' + esc(slide.image) + '" alt="' + esc(slide.city) + '" loading="lazy"><span class="sp-inspire-kicker">' + esc(slide.kicker) + '</span></div>' +
+          '<div class="sp-inspire-body"><strong>' + esc(slide.title) + '</strong><p>' + esc(slide.subtitle) + '</p>' +
+          '<div class="sp-inspire-hotels">' + (slide.hotels || []).slice(0, 3).map(function (hotel) { return '<span>' + esc(hotel.name) + ' ¥' + money(hotel.price) + '起</span>'; }).join('') + '</div>' +
+          '<button class="primary-button small" type="button" data-inspire-city="' + esc(slide.city) + '">查看 ' + esc(slide.city) + ' 酒店</button></div>' +
+        '</article>';
+      }).join('') + '</div>');
+    $('#servicePage').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-inspire-city]');
+      if (!button) return;
+      const city = button.getAttribute('data-inspire-city');
+      state.search.city = city;
+      showHome(false);
+      setMode('hotel', { scroll: true });
+      const input = $('#hotelCityInput');
+      if (input) input.value = city;
+      const form = $('#hotelForm');
+      if (form) form.dispatchEvent(new Event('submit', { cancelable: true }));
+    });
+  }
+
+  function renderInfoPage(title) {
+    const content = INFO_CONTENT[title];
+    if (!content) { renderServicePlaceholder(title); return; }
+    servicePageShell(title, content.intro,
+      '<div class="sp-info">' + content.sections.map(function (section) {
+        return '<div class="sp-card sp-about-card"><h3>' + esc(section.h) + '</h3>' + section.p.map(function (paragraph) { return '<p>' + esc(paragraph) + '</p>'; }).join('') + '</div>';
+      }).join('') +
+      (content.form
+        ? '<div class="sp-card sp-about-card"><h3>提交意向</h3><form id="infoForm" novalidate><div class="booking-form">' +
+            '<div class="form-field"><label for="infoName">称呼</label><input class="form-input" id="infoName" type="text" placeholder="请输入称呼"></div>' +
+            '<div class="form-field"><label for="infoContact">邮箱 / 手机号</label><input class="form-input" id="infoContact" type="text" placeholder="便于我们联系你"></div>' +
+            '<div class="form-field full"><label for="infoMessage">留言</label><textarea class="form-input" id="infoMessage" rows="3" placeholder="简单描述你的意向"></textarea></div>' +
+          '</div><div class="booking-submit-row"><button class="primary-button" type="submit">提交</button></div></form></div>'
+        : '') +
+      '</div>');
+    if (content.form) {
+      $('#infoForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const name = $('#infoName').value.trim();
+        const contact = $('#infoContact').value.trim();
+        if (name.length < 2) { toast('请填写称呼'); return; }
+        if (!contact) { toast('请填写联系方式'); return; }
+        state.infoSubmissions = state.infoSubmissions || [];
+        state.infoSubmissions.push({ title, name, contact, message: $('#infoMessage').value.trim(), at: new Date().toISOString() });
+        toast('意向已记录（本地演示）');
+        $('#infoForm').reset();
+      });
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -3453,7 +4398,10 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   }
 
   function openInfoModal(title) {
-    openModal('<div class="modal-head"><h2 id="modalTitle">' + esc(title) + '</h2><p>这是一个本地旅行预订交互演示。</p></div><div class="modal-body"><p style="font-size:13px;line-height:1.9;color:#55657c">本页面不提供真实预订、支付、出票或客服服务，与携程旅行网及任何真实旅行服务商无关联。页面中的酒店、航班、车次、门票、价格、评分和订单均为本地模拟数据，仅用于展示搜索、筛选、详情、下单、订单管理和收藏等交互流程。</p><p class="demo-note">你可以关闭此窗口继续体验站点功能。</p><div class="booking-submit-row"><button class="primary-button" type="button" data-close-modal>继续体验</button></div></div>');
+    if (title === '酒店榜单') { openRankModal(); return; }
+    if (title === '旅行地图') { openMapModal(state.search.city); return; }
+    if (title === '目的地灵感') { openServicePage('inspire'); return; }
+    openServicePage('info:' + title);
   }
 
   /* ------------------------------------------------------------------ */
@@ -3638,6 +4586,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
 
     $$('.side-item').forEach(function (item) {
       item.addEventListener('click', function () {
+        const page = item.getAttribute('data-service-page');
+        if (page) { openServicePage(page); return; }
         const service = item.getAttribute('data-service');
         if (service) { switchService(service); return; }
         const scroll = item.getAttribute('data-scroll');

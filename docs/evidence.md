@@ -28,8 +28,10 @@
 | 18 | 支付页取消订单与二次确认 | `ev_8784c9d81e8bd35e117f6a914a37ff2b872faca356b02839f9949548b22c84ad`（取消确认层）、`ev_f4b7144f1e9dc47cb1aebf95057c265fda9c93e817ba3e213149ba09f5b6885b`（确认取消） | [cancel-confirm.png](screenshots/cancel-confirm.png)、[order-cancelled.png](screenshots/order-cancelled.png) | 确认支付页提供“取消订单”；二次确认后订单取消、占用库存释放，取消结果以 toast 提示 |
 | 19 | 好友助力砍价（发起人） | `ev_167aca5010ed5bdd5d7918df6f67d14fbc7402cb417d5c550d956e44f12b111b` | [bargain-success.png](screenshots/bargain-success.png) | 下单 → 确认页砍价入口 → 转盘 → 模拟好友 → 砍成 ¥99，订单应付从原价更新为折后价 |
 | 20 | 分享链接帮砍（好友） | `ev_0285dcb3833a30c5669915823168675ab1c8f22cf2bcd2daf37fb8625130f80b` | [bargain-helper.png](screenshots/bargain-helper.png) | 分享链接登录 → 帮 TA 砍一刀 → 每位好友限一次，已助力后按钮禁用 |
+| 21 | 汽车·船票服务页 | `ev_292dfb81e534d1ce2add7bf2223fdaa3ab6bd5518239798bc4ebed678e2f3df8` | [service-coach.png](screenshots/service-coach.png) | 侧栏进入汽车·船票 → 默认班线列表 → 切换船票 tab 展示海岛航线与码头 |
+| 22 | 全球购服务页 | `ev_b030041aea8cd5e9f5325849b6873677ead20ee69455162b5aafeb033ec97439` | [service-shop-detail.png](screenshots/service-shop-detail.png) | 侧栏进入全球购 → 分类筛选 → 商品详情与加购入口 |
 
-场景规模：机票完整流程/火车票流程各 16 步、酒店/门票各 15 步、酒店房量扣减 16 步、确认页 9 步、确认页→稍后支付→待付款 14 步、取消确认层 13 步、支付页取消与二次确认 17 步、好友砍价 15 步、分享帮砍 7 步、登录补全 12 步、筛选 8 步、城市选择器 7 步、选择并搜索 10 步，其余 2–6 步；全部执行完成，无失败步骤。
+场景规模：机票完整流程/火车票流程各 16 步、酒店/门票各 15 步、酒店房量扣减 16 步、确认页 9 步、确认页→稍后支付→待付款 14 步、取消确认层 13 步、支付页取消与二次确认 17 步、好友砍价 15 步、分享帮砍 7 步、汽车船票 6 步、全球购 8 步、登录补全 12 步、筛选 8 步、城市选择器 7 步、选择并搜索 10 步，其余 2–6 步；全部执行完成，无失败步骤。
 
 每个原始证据 JSON 包含：
 

@@ -12,7 +12,7 @@
 tests 39
 pass 39
 fail 0
-duration_ms 317.8629
+duration_ms 445.0452
 ```
 
 | # | 测试 | 覆盖点 | 结果 |
@@ -81,6 +81,8 @@ duration_ms 317.8629
 | 支付页取消与二次确认 | 下单 → 确认支付 → 取消订单 → 二次确认 → 取消成功 | `ev_8784c9d81e8bd35e117f6a914a37ff2b872faca356b02839f9949548b22c84ad`（13 步）<br>`ev_f4b7144f1e9dc47cb1aebf95057c265fda9c93e817ba3e213149ba09f5b6885b`（17 步） | [cancel-confirm.png](screenshots/cancel-confirm.png)、[order-cancelled.png](screenshots/order-cancelled.png) | 全部步骤完成，页面错误 0 |
 | 好友助力砍价 | 下单 → 邀好友砍价 → 模拟 50 位好友 → 砍成 ¥99 → 订单应付更新 | `ev_167aca5010ed5bdd5d7918df6f67d14fbc7402cb417d5c550d956e44f12b111b` | [bargain-success.png](screenshots/bargain-success.png) | 15 步完成，页面错误 0 |
 | 分享链接帮砍 | 分享链接登录 → 帮 TA 砍一刀 → 已助力限制 | `ev_0285dcb3833a30c5669915823168675ab1c8f22cf2bcd2daf37fb8625130f80b` | [bargain-helper.png](screenshots/bargain-helper.png) | 7 步完成，页面错误 0 |
+| 汽车·船票服务页 | 侧栏进入 → 班线列表 → 切换船票 | `ev_292dfb81e534d1ce2add7bf2223fdaa3ab6bd5518239798bc4ebed678e2f3df8` | [service-coach.png](screenshots/service-coach.png) | 6 步完成，页面错误 0 |
+| 全球购服务页 | 侧栏进入 → 分类筛选 → 商品详情加购 | `ev_b030041aea8cd5e9f5325849b6873677ead20ee69455162b5aafeb033ec97439` | [service-shop-detail.png](screenshots/service-shop-detail.png) | 8 步完成，页面错误 0 |
 
 详细索引见 [evidence.md](evidence.md)。
 
@@ -106,6 +108,7 @@ duration_ms 317.8629
 | 提交订单确认与支付入口 | 下单后先展示订单确认页（订单号、乘机人、金额、支付截止时间），可确认支付或稍后支付；稍后支付自动进入“待付款”并显示数量；REA 覆盖 |
 | 订单取消 | 待付款与已支付订单在订单页、确认页、支付页均可取消；二次确认后释放库存，已支付订单执行模拟退款；API 测试 + REA 覆盖 |
 | 好友助力砍价 | 机票/酒店待付款订单可发起，分享链接好友限砍一次，金额衰减至 0.01，隐藏阈值成功，最高减 99；砍成后订单折后支付，取消/超时失效；domain + API + REA 覆盖 |
+| 扩展服务页复刻度 | 汽车·船票、用车、旅游度假、攻略·景点、全球购、礼品卡、橙程金融、老友会、关于与帮助/协议/隐私/订单说明/取消政策/商务合作/加入我们、目的地灵感/酒店榜单/旅行地图全部可打开并有真实交互；搜索/筛选/详情/下单/购物车/试算/报名/表单均可用；浏览器逐入口巡检 + 移动端无横向溢出 + REA 覆盖 |
 | 拼多多式演示 | 提供模拟 1/10 位好友、一次拉 50 人演示入口；砍价全过程为本地模拟，不连接真实拼多多或任何社交平台 |
 | 前后端分离 | 静态 SPA + Node JSON API；浏览器通过 `fetch` 调用 `/api` |
 | 外部模拟 API 集成方案 | MockPay 适配器已实现；航信/DCS 的替换点与生产方案见设计文档 |
