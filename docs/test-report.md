@@ -130,7 +130,7 @@ duration_ms 445.0452
 ## 6. 复现步骤
 
 ```bash
-cd hebut-xiecheng-se24_2
+cd hebut-xiecheng-se24
 npm test
 npm start
 ```
