@@ -6,8 +6,10 @@ export const CABIN_FACTORS = Object.freeze({
   '头等舱': 3.8
 });
 export const CABINS = Object.freeze(Object.keys(CABIN_FACTORS));
+// 票价按 5 分钟时间桶取整：同一桶内重复报价必须得到同一价格，跨桶才允许变化。
 export const FLIGHT_PRICE_BUCKET_MS = 5 * 60 * 1000;
 const DAY_MS = 86400000;
+// 固定税费 80 元为模拟值，不对应任何真实航司的税费标准。
 const TAX_FEE = 80;
 
 export function hashString(input) {

@@ -3,6 +3,7 @@ import { conflict, unprocessable } from './errors.mjs';
 import { ORDER_STATUS } from './order-machine.mjs';
 import { issueTicket } from './airline.mjs';
 
+// 座位图固定为 1–30 排、A–F 列，共 180 个座位；每个座位只有 available / occupied / selected 三种状态。
 const COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const ROWS = Array.from({ length: 30 }, (_, index) => index + 1);
 
@@ -15,6 +16,7 @@ function hashString(input) {
   return hash >>> 0;
 }
 
+// 起飞时间按订单里的日期与起飞时刻（东八区）解析，值机窗口与登机时间都以它为基准。
 function flightDeparture(order) {
   const date = order.details && order.details.date;
   const dep = order.details && order.details.dep;
@@ -23,6 +25,7 @@ function flightDeparture(order) {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
+// 登机时间取起飞前 45 分钟，跨零点时回绕到前一天的时刻。
 function subtractMinutes(time, minutes) {
   const [hour, minute] = String(time).split(':').map(Number);
   let total = hour * 60 + minute - minutes;
@@ -89,6 +92,8 @@ export function buildSeatMap(store, order) {
   };
 }
 
+// 值机校验按“订单类型 → 支付状态 → 乘机人数 → 值机窗口 → 座位可用性”的顺序执行，
+// 任一步不通过都在写入前抛出，保证失败路径不产生值机记录。窗口判定为（起飞前 45 分钟，起飞前 48 小时]。
 export function prepareCheckIn(store, order, seatIds, now = new Date()) {
   assertFlightOrder(order);
   if (order.status !== ORDER_STATUS.PAID) {
