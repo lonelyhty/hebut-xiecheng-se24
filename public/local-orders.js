@@ -1,5 +1,5 @@
 const LABELS = { PENDING_PAYMENT: '待付款', PAID: '已支付', CANCELLED: '已取消', EXPIRED: '已失效' };
-const METHODS = { alipay: '支付宝（模拟）', wechat: '微信支付（模拟）', card: '银行卡（模拟）' };
+const METHODS = { alipay: '支付宝', wechat: '微信支付', card: '银行卡' };
 const TTL_MS = 15 * 60 * 1000;
 
 export function changeLocalOrder(orders, id, action, method, now = new Date()) {
@@ -29,7 +29,7 @@ export function createLocalOrder(draft, contact, passengers = [], now = new Date
     meta: draft.meta, total: draft.total, details: draft.details, contact, passengers,
     createdAt: now.toISOString(), payment: null, history: []
   };
-  return transition(order, 'PENDING_PAYMENT', now, '本地订单已创建，等待模拟付款');
+  return transition(order, 'PENDING_PAYMENT', now, '订单已创建，等待付款');
 }
 
 export function normalizeLocalOrder(order) {
@@ -59,7 +59,7 @@ export function payLocalOrder(order, method, now = new Date()) {
     orderId: order.id, amount: order.total, currency: 'CNY', method,
     methodLabel: METHODS[method], status: 'SUCCESS', paidAt: now.toISOString()
   };
-  return transition(order, 'PAID', now, '已完成浏览器本地模拟支付');
+  return transition(order, 'PAID', now, '已完成支付');
 }
 
 export function cancelLocalOrder(order, now = new Date()) {
@@ -71,5 +71,5 @@ export function cancelLocalOrder(order, now = new Date()) {
     at: now.toISOString(), reason: '用户取消',
     refund: wasPaid ? { status: 'REFUNDED_MOCK', amount: order.total, method: order.payment?.method || null } : null
   };
-  return transition(order, 'CANCELLED', now, wasPaid ? '订单已取消，本地模拟退款已完成' : '用户取消待付款订单');
+  return transition(order, 'CANCELLED', now, wasPaid ? '订单已取消，退款已完成' : '用户取消待付款订单');
 }

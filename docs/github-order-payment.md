@@ -5,13 +5,13 @@
 ## 本地验证
 
 ```powershell
-Set-Location D:/software_test/hebut-xiecheng-se24
+Set-Location D:/software_test/hebut-xiecheng-se24_2
 git branch --show-current
 npm test
 npm start
 ```
 
-打开 http://127.0.0.1:5180/ ，用有效演示手机号和验证码 `888888` 登录。提交订单后先显示订单确认页，可选择「确认支付」或「稍后支付」；支付窗口支持立即支付、稍后支付与取消订单，取消需要二次确认。在我的订单里检查待付款、已支付、已取消筛选。服务运行时另开终端操作 Git。
+打开 http://127.0.0.1:5180/ ，用有效手机号和验证码 `888888` 登录。提交订单后先显示订单确认页，可选择「确认支付」或「稍后支付」；支付窗口支持立即支付、稍后支付与取消订单，取消需要二次确认。在我的订单里检查待付款、已支付、已取消筛选。服务运行时另开终端操作 Git。
 
 ## 保存功能提交
 
@@ -35,7 +35,7 @@ git push -u origin codex/order-payment-cancel
 
 https://github.com/lonelyhty/hebut-xiecheng-se24/compare/main...codex/order-payment-cancel
 
-点击 **Create pull request**，base 选 `main`，compare 选 `codex/order-payment-cancel`。标题可用「feat: 补全待付款、模拟支付与取消订单」。描述填写新增功能、18 项自动化测试通过，以及浏览器验证的下单、稍后付款、刷新保存、支付和取消流程。提交后由 leader 审核合并。推送分支不会自动合并到 main。
+点击 **Create pull request**，base 选 `main`，compare 选 `codex/order-payment-cancel`。标题可用「feat: 补全待付款、沙箱支付与取消订单」。描述填写新增功能、18 项自动化测试通过，以及浏览器验证的下单、稍后付款、刷新保存、支付和取消流程。提交后由 leader 审核合并。推送分支不会自动合并到 main。
 
 ## 没有团队仓库写权限
 

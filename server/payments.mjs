@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { AppError, badRequest } from './errors.mjs';
 
 export const PAYMENT_METHODS = Object.freeze({
-  alipay: '支付宝（模拟）',
-  wechat: '微信支付（模拟）',
-  card: '银行卡（模拟）'
+  alipay: '支付宝',
+  wechat: '微信支付',
+  card: '银行卡'
 });
 
 function sleep(ms) {

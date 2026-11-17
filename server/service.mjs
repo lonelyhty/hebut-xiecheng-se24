@@ -80,7 +80,7 @@ function normalizeFlightPassengers(input, expected) {
       throw unprocessable(`旅客 ${index + 1} 的姓名应为 2–40 个字符`);
     }
     if (!/^[A-Za-z0-9]{6,20}$/.test(document)) {
-      throw unprocessable(`旅客 ${index + 1} 的演示证件号应为 6–20 位字母或数字`);
+      throw unprocessable(`旅客 ${index + 1} 的证件号应为 6–20 位字母或数字`);
     }
     return { name, document };
   });
@@ -231,7 +231,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     });
     result.recommendation = decorateRecommendations(result.results);
     result.inventory = {
-      note: '每个航班初始化 12–36 个模拟座位；下单时原子校验并扣减余票。',
+      note: '每个航班初始化 12–36 个座位；下单时原子校验并扣减余票。',
       availableFlights: result.results.length
     };
     pruneQuotes(now);
@@ -682,7 +682,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
       const ticketing = fresh.type === 'flight' ? issueTicket(fresh, now) : null;
       transition(fresh, ORDER_STATUS.PAID, {
         at: now,
-        reason: `通过 ${payment.methodLabel} 完成本地模拟支付`,
+        reason: `通过 ${payment.methodLabel} 完成支付`,
         patch: { payment, ticketing }
       });
       if (ticketing) {
@@ -690,7 +690,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
           status: ORDER_STATUS.PAID,
           statusLabel: '已出票',
           at: now.toISOString(),
-          reason: `模拟航信出票完成，票号 ${ticketing.ticketNumber}，PNR ${ticketing.pnr}`
+          reason: `出票完成，票号 ${ticketing.ticketNumber}，PNR ${ticketing.pnr}`
         });
       }
       const bargainSession = store.findBargainByOrderId(orderId);
@@ -741,7 +741,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
     }
     transition(order, ORDER_STATUS.CANCELLED, {
       at: now,
-      reason: wasPaid ? '订单已取消，本地模拟退款已完成' : '订单已取消',
+      reason: wasPaid ? '订单已取消，退款已完成' : '订单已取消',
       patch
     });
     await store.replaceOrder(order);
@@ -830,7 +830,7 @@ export function createServices({ store, gateway, clock = () => new Date() }) {
   async function simulateBargainCuts(user, token, count) {
     const session = store.findBargainByToken(token);
     if (!session) throw notFound('砍价活动不存在或分享链接已失效');
-    if (session.ownerId !== user.id) throw forbidden('只有发起人可以模拟好友助力');
+    if (session.ownerId !== user.id) throw forbidden('只有发起人可以发起好友助力');
     const order = requireBargainOrder(session);
     if (order.status !== ORDER_STATUS.PENDING_PAYMENT) {
       closeBargainSession(session, 'EXPIRED', clock(), '订单已结束，砍价活动失效');

@@ -29,7 +29,7 @@ export async function login(store, { phone, code, role }, now = new Date()) {
     throw badRequest('请输入有效的 11 位中国大陆手机号');
   }
   if (normalizedCode !== DEMO_CODE) {
-    throw badRequest(`演示验证码为 ${DEMO_CODE}`);
+    throw badRequest('验证码不正确，请重新输入');
   }
   let user = store.findUserByPhone(normalizedPhone);
   if (!user) {

@@ -26,7 +26,7 @@
 | 16 | 已值机标签（机票） | `ev_0ab061107fee6fbb2779caec3534911bf10c4de9a1d4fcf4038e7b14928de93f` | [orders-checked-in.png](screenshots/orders-checked-in.png) | 已值机机票订单显示在“已值机”标签 |
 | 17 | 提交订单后的确认支付页 | `ev_313924027212e5a75d73e0fe44620a6e0a684e246447f2fa202443cb62dfe8d7`（确认页）、`ev_3e5f196e6cc34523119f18e65602a48d10e67d13e3ae1c9a1edd0a9273beacc9`（稍后支付→待付款） | [order-confirm.png](screenshots/order-confirm.png)、[orders-pending.png](screenshots/orders-pending.png) | 提交订单后先展示订单号、乘机人、金额与支付截止时间；选择“稍后支付”后自动进入“待付款”标签，未支付订单可见 |
 | 18 | 支付页取消订单与二次确认 | `ev_8784c9d81e8bd35e117f6a914a37ff2b872faca356b02839f9949548b22c84ad`（取消确认层）、`ev_f4b7144f1e9dc47cb1aebf95057c265fda9c93e817ba3e213149ba09f5b6885b`（确认取消） | [cancel-confirm.png](screenshots/cancel-confirm.png)、[order-cancelled.png](screenshots/order-cancelled.png) | 确认支付页提供“取消订单”；二次确认后订单取消、占用库存释放，取消结果以 toast 提示 |
-| 19 | 好友助力砍价（发起人） | `ev_167aca5010ed5bdd5d7918df6f67d14fbc7402cb417d5c550d956e44f12b111b` | [bargain-success.png](screenshots/bargain-success.png) | 下单 → 确认页砍价入口 → 转盘 → 模拟好友 → 砍成 ¥99，订单应付从原价更新为折后价 |
+| 19 | 好友助力砍价（发起人） | `ev_167aca5010ed5bdd5d7918df6f67d14fbc7402cb417d5c550d956e44f12b111b` | [bargain-success.png](screenshots/bargain-success.png) | 下单 → 确认页砍价入口 → 转盘 → 邀请好友 → 砍成 ¥99，订单应付从原价更新为折后价 |
 | 20 | 分享链接帮砍（好友） | `ev_0285dcb3833a30c5669915823168675ab1c8f22cf2bcd2daf37fb8625130f80b` | [bargain-helper.png](screenshots/bargain-helper.png) | 分享链接登录 → 帮 TA 砍一刀 → 每位好友限一次，已助力后按钮禁用 |
 | 21 | 汽车·船票服务页 | `ev_292dfb81e534d1ce2add7bf2223fdaa3ab6bd5518239798bc4ebed678e2f3df8` | [service-coach.png](screenshots/service-coach.png) | 侧栏进入汽车·船票 → 默认班线列表 → 切换船票 tab 展示海岛航线与码头 |
 | 22 | 全球购服务页 | `ev_b030041aea8cd5e9f5325849b6873677ead20ee69455162b5aafeb033ec97439` | [service-shop-detail.png](screenshots/service-shop-detail.png) | 侧栏进入全球购 → 分类筛选 → 商品详情与加购入口 |
@@ -48,7 +48,7 @@
 启动服务：
 
 ```bash
-cd L:\rea\rexiecheng2\local-site
+cd hebut-xiecheng-se24_2
 npm start
 ```
 
@@ -63,10 +63,10 @@ rea capture-browser-scenario scenarios/scenario-flight-checkin.json --format jso
 - 场景要求本机存在 `C:/Program Files/Google/Chrome/Application/chrome.exe`；其他机器需调整 `browser.executable_path`。
 - 带登录态的场景通过 `storage.local_storage` 注入本地 API Token。Token 过期后，先调用 `POST /api/auth/login` 获取新 Token，再替换场景中的 `octrip.api.token.v1`。
 - 场景只访问 `127.0.0.1:5180`，不连接外部网站。
-- 航班目录为 32 个主要城市的本地模拟数据；真实机场/航司名称用于目录辨识，时刻、价格、余票、票号、PNR、登机口与订单均为模拟。
+- 航班目录为 32 个主要城市的内置数据；真实机场/航司名称用于目录辨识，时刻、价格、余票、票号、PNR、登机口与订单均由本系统生成。
 
 ## 3. 参考站点的历史证据包
 
-此前对公开首页的只读分析产物、REA Evidence ID 和报告保留在项目根目录（`L:\rea\rexiecheng2`），作为设计参考与本地证据背景，不属于本平台的运行证据，也不随本仓库发布。它们不代表与参考站点存在任何关联。
+此前对公开首页的只读分析产物、REA Evidence ID 和报告保留在本地证据目录，作为设计参考与本地证据背景，不属于本平台的运行证据，也不随本仓库发布。它们不代表与参考站点存在任何关联。
 
 本平台只继承该分析中的版式与交互目标；品牌、图片、文案、数据与后端均为原创或本地生成，且没有接入参考站点的服务端接口。

@@ -1,6 +1,6 @@
 # 橙程航空旅行一站式服务平台
 
-一个可在本地完整运行的机票、酒店、景点门票综合预订演示项目。项目以前端公开首页的视觉观察为参考，重新实现了独立品牌、原创界面与本地模拟数据；不复制真实网站的品牌、图片、业务接口或风控实现，也与携程旅行网无关联。
+一个可在本地完整运行的机票、酒店、景点门票综合预订平台。项目以前端公开首页的视觉观察为参考，重新实现了独立品牌、原创界面与内置数据；不复制真实网站的品牌、图片、业务接口或风控实现，也与携程旅行网无关联。
 
 ![首页](docs/screenshots/homepage.png)
 
@@ -9,14 +9,14 @@
 要求 Node.js 20 及以上（开发验证环境为 Node.js 24.14.0）。
 
 ```bash
-cd L:\rea\rexiecheng2\local-site
+cd hebut-xiecheng-se24_2
 npm start
 ```
 
 打开 `http://127.0.0.1:5180/`。项目没有第三方运行时依赖，因此不需要安装 `express` 等包；首次启动会在 `data/store.json` 创建本地数据文件。
 
 - 健康检查：`http://127.0.0.1:5180/api/health`
-- 演示登录：任意 11 位中国大陆手机号 + 验证码 `888888`
+- 登录：任意 11 位中国大陆手机号 + 验证码 `888888`
 - 角色：登录框内可选择「旅客」或「旅行社」。旅行社角色可查看全部旅客订单。
 - 自定义端口：`PORT=8080 npm start`（Windows PowerShell 可用 `$env:PORT=8080; npm start`）。
 - 重置本地数据：停止服务后删除 `data/store.json`。
@@ -24,28 +24,28 @@ npm start
 
 ### 待付款与取消订单
 
-提交订单后先显示订单确认页，包含订单号、乘机人、金额与支付截止时间，可「确认支付」或「稍后支付」；确认支付后进入支付窗口，提供「立即支付」「稍后支付」「取消订单」。点击「稍后支付」会进入「我的订单 → 待付款」，可继续付款或取消。关闭窗口也保留订单。支付成功显示「已支付」；取消显示「已取消」，不能再次付款，已支付订单取消会记录模拟退款。
+提交订单后先显示订单确认页，包含订单号、乘机人、金额与支付截止时间，可「确认支付」或「稍后支付」；确认支付后进入支付窗口，提供「立即支付」「稍后支付」「取消订单」。点击「稍后支付」会进入「我的订单 → 待付款」，可继续付款或取消。关闭窗口也保留订单。支付成功显示「已支付」；取消显示「已取消」，不能再次付款，已支付订单取消会记录退款。
 
 待付款保留 15 分钟，打开订单列表或操作时检查超时。后端机票取消或超时释放库存。浏览器本地模式也支持付款与取消，刷新后仍保留状态，但不支持后端出票与值机。旧版「已确认」本地订单按「已支付」展示。
 
-### 好友助力砍价（拼多多式）
+### 好友助力砍价
 
 待付款机票/酒店订单可从确认页或订单卡片点击「邀好友砍价」，生成分享链接。好友登录后每人限砍一次；每次金额从 ¥8.88/¥5.20 逐步衰减到 ¥0.10/¥0.05/¥0.01，接近目标后经常只差 ¥0.01，继续邀请也不保证成功。砍成后获得最高 ¥99 优惠，订单应付立即更新，支付时按折后金额扣款；订单取消或超时会关闭活动并释放库存。
 
-本地演示提供「模拟 1 位好友」「模拟 10 位好友」和「演示：一次拉 50 位好友（必成）」入口。分享链接默认只监听本机；同一局域网联调可先运行 `$env:HOST='0.0.0.0'; npm start`，再用本机局域网 IP 打开页面。
+页面提供「邀 1 位好友助力」「邀 10 位好友助力」和「一键邀请 50 位好友（必成）」入口。分享链接默认只监听本机；同一局域网联调可先运行 `$env:HOST='0.0.0.0'; npm start`，再用本机局域网 IP 打开页面。
 
 分支提交步骤见 [GitHub 提交指南](docs/github-order-payment.md)。
 
 ## 已实现功能
 
 - **机票**：32 个主要城市、992 条国内航线、5 家航司；真实机场/航站楼、基于距离的航班时刻、5 分钟动态含税票价、7 日低价日历、航司与预算筛选、完整城市选择器、热门航线快捷入口、智能航班推荐、本地余票库存与 10 分钟报价锁定。单程与往返均可查询、组合报价并创建订单，往返订单同时锁定去程和返程库存。
-- **酒店**：城市/日期/人数/星级/关键词搜索，价格与星级筛选，详情、房型与模拟下单；房型库存下单时扣减，取消或支付超时释放，详情实时显示剩余房量并禁止超卖。
-- **门票·活动**：城市、日期、关键词搜索，活动详情与模拟下单。
-- **火车票**：上海虹桥—北京南等本地模拟车次，已接入后端订单、支付与状态筛选。
+- **酒店**：城市/日期/人数/星级/关键词搜索，价格与星级筛选，详情、房型与下单；房型库存下单时扣减，取消或支付超时释放，详情实时显示剩余房量并禁止超卖。
+- **门票·活动**：城市、日期、关键词搜索，活动详情与下单。
+- **火车票**：上海虹桥—北京南等内置车次，已接入后端订单、支付与状态筛选。
 - **订单**：后端订单中心，状态筛选（待付款/已支付/已值机/已取消）并显示各类数量；订单详情与状态历史；机票、酒店、火车票、门票统一使用同一套状态字段，未支付订单会出现在「待付款」。
-- **预订**：1–6 位乘机人，姓名与演示证件号由后端校验；创建订单时扣减余票，取消或超时自动释放。提交订单后先进入订单确认页，展示订单号、乘机人、金额与支付截止时间。
-- **支付与出票**：本地 MockPay 沙箱，支付宝/微信/银行卡三种模拟方式；支付成功后生成模拟票号与 PNR，不产生真实扣款。支付页与订单确认页均可直接取消订单，取消前要求二次确认，已支付订单执行模拟退款并释放库存。
-- **好友助力砍价**：机票/酒店待付款订单可发起拼多多式「砍 ¥99」，分享链接每位好友限砍一次；金额逐步衰减到 0.01，砍成后订单立减，取消或超时自动失效；提供模拟好友与批量演示入口。
+- **预订**：1–6 位乘机人，姓名与证件号由后端校验；创建订单时扣减余票，取消或超时自动释放。提交订单后先进入订单确认页，展示订单号、乘机人、金额与支付截止时间。
+- **支付与出票**：本地 MockPay 沙箱，支付宝/微信/银行卡三种方式；支付成功后生成票号与 PNR，不产生真实扣款。支付页与订单确认页均可直接取消订单，取消前要求二次确认，已支付订单执行退款并释放库存。
+- **好友助力砍价**：机票/酒店待付款订单可发起好友助力式「砍 ¥99」，分享链接每位好友限砍一次；金额逐步衰减到 0.01，砍成后订单立减，取消或超时自动失效；提供好友助力与批量邀请入口。
 - **汽车·船票**：城际巴士与海岛航线搜索，按城市/日期查询班次，展示时刻、车站、车型与余票，筛选后可直接下单进入本地订单体系。
 - **用车**：接送机、接送火车、租车与即时打车四种场景；按上下车点估算里程与时长，分车型报价，租车按天计费，均可下单。
 - **旅游度假**：跟团游/自由行/周边游套餐，支持目的地、天数、关键词与排序筛选；套餐详情含逐日行程与费用包含，可一键预订。
@@ -53,56 +53,55 @@ npm start
 - **全球购**：分类商品网格、搜索与排序、商品详情、数量步进、购物车增删改与结算下单。
 - **礼品卡**：面额/卡面/数量/祝福语实时预览，购买后生成本地礼品卡订单。
 - **橙程金融 / 老友会 / 关于与帮助**：金融产品与分期试算器、银发慢游线路与报名咨询、关于页与帮助中心/协议/隐私/订单说明/取消政策/商务合作/加入我们等内容页，替换原有占位弹窗。
-- **在线值机**：已支付机票订单支持 1–6 位乘机人，在起飞前 48 小时至 45 分钟窗口内逐人选择 1–30 排 A–F 座位，生成多张模拟登机牌。
+- **在线值机**：已支付机票订单支持 1–6 位乘机人，在起飞前 48 小时至 45 分钟窗口内逐人选择 1–30 排 A–F 座位，生成多张登机牌。
 - **行程规划**：后端按城市、天数、偏好生成逐日行程并联动同城酒店；登录后可保存行程并查看历史。
 - **多角色**：旅客与旅行社视角，旅行社可读取全部订单并查看订单量、支付金额、出行旅客和待支付统计工作台。
-- **降级**：后端不可用时，首页浏览与本地模拟流程仍可运行，并在页头显示「本地模式」；本地订单以「待付款」创建，可在浏览器内完成模拟支付、取消与超时失效，刷新后仍保留，但不支持后端出票与在线值机。
+- **降级**：后端不可用时，首页浏览与本地流程仍可运行，并在页头显示「本地模式」；本地订单以「待付款」创建，可在浏览器内完成支付、取消与超时失效，刷新后仍保留，但不支持后端出票与在线值机。
 
 ## 目录结构
 
 ```
+public/                 前端静态资源（HTML/CSS/ES Module）
+  index.html
+  styles.css            基础界面样式
+  platform.css          航空平台扩展样式
+  app.js                前端交互与 API 调用
+  api.js                浏览器 API 客户端
+  data.js               前后端共享的内置目录（城市/酒店/航班/门票）
+  flight-pricing.js     前后端共用的航程、日期、航司、舱位与旺季定价模型
+  extra-data.js         汽车/船票班次与用车报价
+  travel-data.js        旅游度假套餐与攻略文章
+  shop-data.js          全球购商品与礼品卡面额/卡面
+  content-data.js       金融/老友会/关于/帮助页内容
+  assets/               本地生成的原创 JPG 配图
+server.mjs              HTTP 服务入口
+server/
+  app.mjs               路由、静态托管、鉴权中间层
+  service.mjs           应用服务编排（搜索、订单、支付、值机）
+  pricing.mjs           动态票价、低价日历与智能推荐
+  airline.mjs           出票适配器（票号 / PNR）
+  bargain.mjs           好友助力砍价状态机与金额衰减算法
+  order-machine.mjs     订单状态机
+  checkin.mjs           30 排座位图、值机窗口与登机牌
+  itinerary.mjs         行程规划
+  auth.mjs              本地会话与角色
+  payments.mjs          外部支付网关适配器（MockPay 沙箱）
+  store.mjs             JSON 持久化与航班库存
+tests/                  Node 原生测试（领域、API、性能）
+docs/                   设计、测试与证据文档
+  screenshots/          最终浏览器验证截图
+data/                   运行时本地数据（已忽略）
+```
 
 ## 部署
 
-项目是无第三方运行时依赖的 Node HTTP 服务，可部署到任意支持 Node.js 20+ 的主机。生产启动命令为 `npm start`，通过 `PORT` 设置监听端口；建议将 `HOST=127.0.0.1` 保持为内网默认值，并使用反向代理提供 HTTPS。运行目录需要对 `data/` 具有写权限，订单、库存、会话和保存的行程会写入 `data/store.json`。部署前请配置独立数据目录和备份策略；支付、航信、短信和实名仍需替换本地模拟适配器。
-local-site/
-  public/                前端静态资源（HTML/CSS/ES Module）
-    index.html
-    styles.css          基础界面样式
-    platform.css        航空平台扩展样式
-    app.js              前端交互与 API 调用
-    api.js              浏览器 API 客户端
-    data.js             前后端共享的模拟目录（城市/酒店/航班/门票）
-    flight-pricing.js   前后端共用的航程、日期、航司、舱位与旺季模拟定价
-    extra-data.js       汽车/船票班次与用车报价模拟
-    travel-data.js      旅游度假套餐与攻略文章
-    shop-data.js        全球购商品与礼品卡面额/卡面
-    content-data.js     金融/老友会/关于/帮助页内容
-    assets/             本地生成的原创 JPG 配图
-  server.mjs             HTTP 服务入口
-  server/
-    app.mjs              路由、静态托管、鉴权中间层
-    service.mjs          应用服务编排（搜索、订单、支付、值机）
-    pricing.mjs          动态票价、低价日历与智能推荐
-    airline.mjs          模拟航信出票（票号 / PNR）
-    bargain.mjs          好友助力砍价状态机与金额衰减算法
-    order-machine.mjs    订单状态机
-    checkin.mjs          30 排座位图、值机窗口与登机牌
-    itinerary.mjs        行程规划
-    auth.mjs             本地会话与角色
-    payments.mjs         外部支付网关模拟适配器
-    store.mjs            JSON 持久化与航班库存
-  tests/                 Node 原生测试（领域、API、性能）
-  docs/                  设计、测试与证据文档
-    screenshots/         最终浏览器验证截图
-  data/                  运行时本地数据（已忽略）
-```
+项目是无第三方运行时依赖的 Node HTTP 服务，可部署到任意支持 Node.js 20+ 的主机。生产启动命令为 `npm start`，通过 `PORT` 设置监听端口；建议将 `HOST=127.0.0.1` 保持为内网默认值，并使用反向代理提供 HTTPS。运行目录需要对 `data/` 具有写权限，订单、库存、会话和保存的行程会写入 `data/store.json`。部署前请配置独立数据目录和备份策略；支付、航信、短信和实名仍需替换为真实供应商适配器。
 
 REA 采样的原始场景与证据 JSON 保留在本地证据包中，不随公开仓库发布；公开文档保留了证据编号与最终截图。
 
 ## 设计与验证
 
-- [架构与业务设计](docs/design.md)：角色用例、架构图、关键序列图、动态定价、推荐权重、订单状态机、外部模拟 API 集成方案与 API 契约。
+- [架构与业务设计](docs/design.md)：角色用例、架构图、关键序列图、动态定价、推荐权重、订单状态机、外部供应商 API 集成方案与 API 契约。
 - [测试报告](docs/test-report.md)：自动化测试结果、搜索性能数据、浏览器全流程验证范围与未验证项。
 - [REA 证据索引](docs/evidence.md)：浏览器验证场景、证据 ID 与最终截图。
-- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [订单确认与支付](docs/screenshots/order-confirm.png) · [取消订单确认](docs/screenshots/cancel-confirm.png) · [好友砍价成功](docs/screenshots/bargain-success.png) · [帮好友砍一刀](docs/screenshots/bargain-helper.png) · [汽车·船票](docs/screenshots/service-coach.png) · [用车](docs/screenshots/service-car.png) · [旅游度假](docs/screenshots/service-travel.png) · [攻略·景点](docs/screenshots/service-guide.png) · [全球购](docs/screenshots/service-shop.png) · [礼品卡](docs/screenshots/service-gift.png) · [橙程金融](docs/screenshots/service-finance.png) · [老友会](docs/screenshots/service-senior.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png)
+- 截图预览：[机票搜索与低价日历](docs/screenshots/flight-search.png) · [城市选择器](docs/screenshots/city-picker.png) · [热门航线](docs/screenshots/route-shortcuts.png) · [航司筛选](docs/screenshots/flight-filters.png) · [订单确认与支付](docs/screenshots/order-confirm.png) · [取消订单确认](docs/screenshots/cancel-confirm.png) · [好友砍价成功](docs/screenshots/bargain-success.png) · [帮好友砍一刀](docs/screenshots/bargain-helper.png) · [汽车·船票](docs/screenshots/service-coach.png) · [用车](docs/screenshots/service-car.png) · [旅游度假](docs/screenshots/service-travel.png) · [攻略·景点](docs/screenshots/service-guide.png) · [全球购](docs/screenshots/service-shop.png) · [礼品卡](docs/screenshots/service-gift.png) · [橙程金融](docs/screenshots/service-finance.png) · [老友会](docs/screenshots/service-senior.png) · [登机牌](docs/screenshots/boarding-pass.png) · [订单管理](docs/screenshots/orders.png) · [行程规划](docs/screenshots/itinerary-planner.png) · [地图找酒店](docs/screenshots/map.png)

@@ -43,7 +43,7 @@ export function normalizeCityOrThrow(value, label) {
   if (!name) throw badRequest(`请填写${label}`);
   const city = TRAVEL_DATA.findFlightCity(name);
   if (!city) {
-    throw badRequest(`${label}「${name}」暂无模拟航班，目前支持：${SUPPORTED_FLIGHT_CITIES}`);
+    throw badRequest(`${label}「${name}」暂无航班，目前支持：${SUPPORTED_FLIGHT_CITIES}`);
   }
   return city;
 }
@@ -201,7 +201,7 @@ export function buildFlightSearch({ from, to, date, passengers = 1, cabin = '经
     priceContext: {
       bucket,
       validUntil,
-      note: '本地模拟价格，非航司实时售价；综合航程、航司、日期、旺季、提前购票天数、时段和舱位计算，每 5 分钟更新，报价锁定 10 分钟；税费为演示固定值。'
+      note: '价格非航司实时售价；综合航程、航司、日期、旺季、提前购票天数、时段和舱位计算，每 5 分钟更新，报价锁定 10 分钟；税费为固定值。'
     },
     supportedCities: TRAVEL_DATA.flightCities.map((city) => city.name),
     calendar: buildPriceCalendar({ from: fromCity.name, to: toCity.name, date: parsed.key, cabin, now }),

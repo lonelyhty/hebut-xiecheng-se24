@@ -75,7 +75,7 @@ export function computeFlightPrice(flight, cabin = '经济舱', now = new Date()
   if (leadTimeFactor > 1) reasons.push('临近出发价格上浮');
   if (leadTimeFactor < 1) reasons.push('提前购票优惠');
   if (seasonalFactor > 1) reasons.push('目的地旺季需求较高');
-  if (travelDateFactor >= 1.4) reasons.push('假期模拟需求较高');
+  if (travelDateFactor >= 1.4) reasons.push('假期需求较高');
   else if (travelDateFactor > 1) reasons.push('周末出行需求较高');
   if (timeFactor < 1) reasons.push('早晚时段优惠');
   if (!reasons.length) reasons.push('当前价格相对平稳');

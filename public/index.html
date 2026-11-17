@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="橙程航空旅行一站式服务平台：本地可运行的机票、酒店、门票预订演示，包含动态票价、智能推荐、订单支付、在线值机与行程规划。">
+  <meta name="description" content="橙程航空旅行一站式服务平台：机票、酒店、门票预订，包含动态票价、智能推荐、订单支付、在线值机与行程规划。">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <title>橙程旅行 · 航空旅行一站式服务平台</title>
   <link rel="stylesheet" href="styles.css">
@@ -156,7 +156,7 @@
           <div class="dropdown" id="ordersDropdown">
             <button class="text-btn dropdown-trigger" id="ordersTrigger" type="button">我的订单 <svg class="mini-chevron"><use href="#i-chevron-down"></use></svg></button>
             <div class="dropdown-panel orders-panel" id="ordersPanel" hidden>
-              <div class="orders-panel-head"><strong>我的订单</strong><span>保存在本地</span></div>
+              <div class="orders-panel-head"><strong>我的订单</strong></div>
               <div id="ordersPreview" class="orders-preview"></div>
               <button class="orders-all" id="ordersAll" type="button">查看全部订单 <svg><use href="#i-arrow-right"></use></svg></button>
             </div>
@@ -204,7 +204,6 @@
                         <input id="hotelCityInput" type="text" value="上海" autocomplete="off" spellcheck="false">
                         <svg class="field-icon"><use href="#i-location"></use></svg>
                       </div>
-                      <span class="field-hint">热门：上海 · 北京 · 三亚</span>
                       <div class="field-suggest" id="hotelCitySuggest" hidden></div>
                     </div>
                     <div class="field field-dates" id="hotelDateField" role="button" tabindex="0" aria-label="选择入住和退房日期">
@@ -288,7 +287,6 @@
                       <button class="trip-tab is-active" type="button" data-trip="oneway">单程</button>
                       <button class="trip-tab" type="button" data-trip="roundtrip">往返</button>
                     </div>
-                    <span class="trip-note">全国 32 城 · 992 条航线</span>
                   </div>
                   <div class="field-row field-row-main flight-main">
                     <div class="field field-city" id="flightFromField">
@@ -564,7 +562,6 @@
                 <strong>橙程旅行</strong>
               </div>
               <p>航空旅行一站式服务平台：整合机票、酒店与门票，提供动态票价、智能推荐、订单支付、在线值机与行程规划。</p>
-              <span class="footer-demo">本地演示 · 非真实预订平台</span>
             </div>
             <div class="footer-links">
               <div><h4>关于</h4><button type="button" data-footer-link>关于橙程</button><button type="button" data-footer-link>服务协议</button><button type="button" data-footer-link>隐私说明</button></div>
@@ -619,7 +616,6 @@
                 <button type="button" class="filter-chip" data-tag="亲子友好">亲子友好</button>
               </div>
             </div>
-            <div class="filter-tip"><svg><use href="#i-info"></use></svg><span>筛选会即时应用到当前模拟结果。</span></div>
           </aside>
           <aside class="filter-panel flight-filter-panel" id="flightFilterPanel" hidden>
             <div class="filter-head"><h3>航班筛选</h3><button id="resetFlightFilters" type="button">重置</button></div>
@@ -637,7 +633,6 @@
               <h4>余票与出票</h4>
               <div class="flight-stock-note">仅显示满足乘机人数的余票；下单后扣减库存，取消或超时自动释放。</div>
             </div>
-            <div class="filter-tip"><svg><use href="#i-info"></use></svg><span>筛选只影响当前已获取的模拟结果，不会重新计价。</span></div>
           </aside>
           <section class="results-list-wrap">
             <div class="results-toolbar">
@@ -668,10 +663,6 @@
               </div>
               <div class="map-teaser-copy"><strong>地图找酒店</strong><span>按商圈位置浏览附近房源</span></div>
               <button class="ghost-button small" id="openMapBtn" type="button">打开地图</button>
-            </div>
-            <div class="tips-card">
-              <h4><svg><use href="#i-shield"></use></svg>本地预订演示</h4>
-              <p>搜索、筛选、查看详情、提交订单和取消订单均在浏览器本地完成，不会向你收取任何费用，也不连接真实旅行服务商。</p>
             </div>
           </aside>
         </div>
@@ -710,9 +701,6 @@
                 <div><span class="state-dot checked"></span><strong>已值机</strong><p>完成选座并生成登机牌，订单进入出行阶段。</p></div>
                 <div><span class="state-dot cancelled"></span><strong>已取消 / 已失效</strong><p>终态，不可再次支付或值机。</p></div>
               </div>
-            </div>
-            <div class="tips-card">
-              <h4><svg><use href="#i-info"></use></svg>本地状态机</h4>
             </div>
           </aside>
         </div>

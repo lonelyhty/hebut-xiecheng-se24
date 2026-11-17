@@ -18,7 +18,7 @@ export function buildItinerary({ city, days = 3, preferences = [], now = new Dat
   const styles = (Array.isArray(preferences) ? preferences : []).filter((style) => STYLE_LABELS[style]);
   const attractionPool = TRAVEL_DATA.getAttractions(normalizedCity);
   const hotels = TRAVEL_DATA.getHotels(normalizedCity);
-  if (!attractionPool.length || !hotels.length) throw badRequest('该城市暂无模拟行程数据');
+  if (!attractionPool.length || !hotels.length) throw badRequest('该城市暂无行程数据');
 
   let attractionIndex = 0;
   const plan = [];
@@ -59,7 +59,7 @@ export function buildItinerary({ city, days = 3, preferences = [], now = new Dat
         name: hotel.name,
         area: hotel.area,
         price: hotel.price,
-        note: '本地模拟酒店，可在首页直接搜索同城酒店落实预订。'
+        note: '推荐酒店，可在首页直接搜索同城酒店落实预订。'
       },
       estimatedCost: first.price + second.price + hotel.price
     });
@@ -70,7 +70,7 @@ export function buildItinerary({ city, days = 3, preferences = [], now = new Dat
     city: normalizedCity,
     days: dayCount,
     preferences: styles.map((style) => STYLE_LABELS[style]),
-    summary: `${normalizedCity} ${dayCount} 天行程，已按${styles.length ? styles.map((style) => STYLE_LABELS[style]).join('、') : '均衡'}偏好生成，景点与价格为本地模拟数据。`,
+    summary: `${normalizedCity} ${dayCount} 天行程，已按${styles.length ? styles.map((style) => STYLE_LABELS[style]).join('、') : '均衡'}偏好生成，景点与价格仅供参考。`,
     plan,
     estimatedCost,
     generatedAt: now.toISOString()

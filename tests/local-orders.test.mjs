@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createLocalOrder, normalizeLocalOrder, payLocalOrder, cancelLocalOrder, expireLocalOrder, changeLocalOrder } from '../public/local-orders.js';
 
 const now = new Date('2026-10-21T04:00:00Z');
-const draft = { kind: 'hotel', kindLabel: '酒店订单', title: '演示酒店', total: 388, details: {} };
+const draft = { kind: 'hotel', kindLabel: '酒店订单', title: '示例酒店', total: 388, details: {} };
 const contact = { name: '测试旅客', phone: '13800138000' };
 const create = () => createLocalOrder(draft, contact, [], now);
 

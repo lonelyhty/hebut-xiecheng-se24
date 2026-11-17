@@ -198,7 +198,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     hotel: {
       title: '预订酒店',
       eyebrow: '安心订 · 放心住',
-      subtitle: '目的地、日期选定后即可搜索本地模拟房源'
+      subtitle: '目的地、日期选定后即可搜索房源'
     },
     flight: {
       title: '预订机票',
@@ -208,12 +208,12 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     train: {
       title: '预订火车票',
       eyebrow: '高铁出行 · 说走就走',
-      subtitle: '选择出发与到达城市，查询本地模拟车次'
+      subtitle: '选择出发与到达城市，查询车次'
     },
     ticket: {
       title: '预订门票·活动',
       eyebrow: '玩乐体验 · 即刻出发',
-      subtitle: '按城市与关键词查找本地模拟玩乐项目'
+      subtitle: '按城市与关键词查找玩乐项目'
     }
   };
 
@@ -416,7 +416,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function renderOrdersPreview() {
     if (!state.orders.length) {
       const message = state.apiOnline && !state.user
-        ? '登录后查看后端订单；本地模拟模式也可直接预订。'
+        ? '登录后即可查看和管理你的订单。'
         : (state.ordersLoading ? '正在读取订单…' : '还没有订单，搜索并预订后会显示在这里。');
       $('#ordersPreview').innerHTML = '<div class="order-preview-empty">' + message + '</div>';
       return;
@@ -437,7 +437,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       $('#registerTrigger').hidden = true;
     } else {
       $('#loginTrigger').textContent = '登录';
-      $('#loginTrigger').title = '登录本地演示账户';
+      $('#loginTrigger').title = '登录账户';
       $('#registerTrigger').hidden = false;
     }
   }
@@ -479,7 +479,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       }
     } catch (error) {
       state.apiOnline = false;
-      setApiStatus('offline', '本地模式', '后端未启动，已切换到本地模拟数据');
+      setApiStatus('offline', '本地模式', '后端未启动，使用浏览器本地数据');
       renderOrdersPreview();
     }
     maybeOpenPendingBargain();
@@ -726,11 +726,11 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     syncLocalOrders();
     state.orders.forEach(function (order) { if (expireLocalOrder(order)) persistLocalOrders(order); });
     if (!state.apiOnline && !state.user && !state.orders.length) {
-      $('#ordersMeta').textContent = '本地模拟模式：登录或直接预订后即可查看订单';
+      $('#ordersMeta').textContent = '登录或直接预订后即可查看订单';
     } else {
       $('#ordersMeta').textContent = state.apiOnline
-        ? (state.user && state.user.role === 'agency' ? '旅行社视角：可查看全部旅客订单' : '订单保存在本地后端，状态变化可追踪')
-        : '后端未启动，当前显示浏览器本地的演示订单';
+        ? (state.user && state.user.role === 'agency' ? '旅行社视角：可查看全部旅客订单' : '订单状态变化可追踪')
+        : '后端未启动，当前显示浏览器本地订单';
     }
     $('#agencyScopeBadge').hidden = !(state.apiOnline && state.user && state.user.role === 'agency');
     const agencyCard = $('#agencyDashboardCard');
@@ -738,7 +738,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       const dashboard = state.agencyDashboard;
       agencyCard.hidden = !(dashboard && state.user && state.user.role === 'agency');
       if (dashboard) {
-        agencyCard.innerHTML = '<h3>旅行社工作台</h3><div class="agency-stat-grid"><div><strong>' + dashboard.statusCounts.all + '</strong><span>全部订单</span></div><div><strong>¥' + money(dashboard.paidAmount) + '</strong><span>已支付金额</span></div><div><strong>' + dashboard.activeTravelers + '</strong><span>出行旅客</span></div><div><strong>' + dashboard.statusCounts.PENDING_PAYMENT + '</strong><span>待支付</span></div></div><p class="demo-note">统计来自全部旅客订单，可继续进入订单卡片查看详情。</p>';
+        agencyCard.innerHTML = '<h3>旅行社工作台</h3><div class="agency-stat-grid"><div><strong>' + dashboard.statusCounts.all + '</strong><span>全部订单</span></div><div><strong>¥' + money(dashboard.paidAmount) + '</strong><span>已支付金额</span></div><div><strong>' + dashboard.activeTravelers + '</strong><span>出行旅客</span></div><div><strong>' + dashboard.statusCounts.PENDING_PAYMENT + '</strong><span>待支付</span></div></div>';
       }
     }
     const tabCounts = { all: state.orders.length, PENDING_PAYMENT: 0, PAID: 0, CHECKED_IN: 0, CANCELLED: 0 };
@@ -754,9 +754,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     });
     if (state.apiOnline && !state.user) {
       $('#ordersPageList').innerHTML = '<div class="orders-login-prompt">' + svgIcon('user') +
-        '<h3>登录后管理订单</h3><p>本平台使用手机号 + 验证码登录。演示验证码固定为 888888，可注册旅客或旅行社角色。</p>' +
+        '<h3>登录后管理订单</h3><p>使用手机号 + 验证码登录，可注册旅客或旅行社角色。</p>' +
         '<button class="primary-button" type="button" data-orders-login>立即登录</button>' +
-        '<p class="demo-note">所有账户与订单只保存在本机后端数据文件中。</p></div>';
+        '</div>';
       return;
     }
     if (state.ordersLoading && !state.orders.length) {
@@ -881,7 +881,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     if (action === 'ai') { openPlannerModal(); return; }
     if (action === 'map') { openMapModal(state.search.city); return; }
     if (action === 'business') { openBusinessModal(); return; }
-    toast('该服务为本地演示占位，请体验酒店、机票、火车票与门票流程。');
+    toast('该服务暂未开放，请体验酒店、机票、火车票与门票流程。');
   }
 
   function switchService(service) {
@@ -932,7 +932,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   }
 
   function renderServicePlaceholder(key) {
-    servicePageShell('服务建设中', '本地演示', '<div class="sp-card"><p>该服务页面正在完善。</p></div>');
+    servicePageShell('服务建设中', '敬请期待', '<div class="sp-card"><p>该服务页面正在完善。</p></div>');
   }
 
   function coachFormHtml(kind) {
@@ -953,7 +953,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function renderBusPage() {
     state.coachKind = state.coachKind || 'bus';
     const kind = state.coachKind;
-    servicePageShell('汽车·船票', '城际巴士与海岛航线 · 本地模拟班次',
+    servicePageShell('汽车·船票', '城际巴士与海岛航线',
       '<div class="sp-tabs" id="coachTabs">' +
         '<button type="button" data-coach-kind="bus" class="' + (kind === 'bus' ? 'is-active' : '') + '">汽车票</button>' +
         '<button type="button" data-coach-kind="ship" class="' + (kind === 'ship' ? 'is-active' : '') + '">船票</button>' +
@@ -1151,7 +1151,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     state.travelFilter = state.travelFilter || { dest: '', days: '', type: '', keyword: '', sort: 'recommended' };
     const filter = state.travelFilter;
     const dests = packageDests();
-    servicePageShell('旅游度假', '跟团游 · 自由行 · 周边游 · 本地模拟套餐',
+    servicePageShell('旅游度假', '跟团游 · 自由行 · 周边游',
       '<div class="sp-hero sp-hero-travel">' +
         '<div class="sp-hero-copy"><h2>去哪儿玩</h2><p>精选目的地 · 一价全包更省心</p></div>' +
         '<form class="sp-form" id="travelForm" novalidate>' +
@@ -1200,7 +1200,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       box.innerHTML = '<div class="sp-empty">没有符合条件的套餐，试试放宽目的地或天数。</div>';
       return;
     }
-    box.innerHTML = '<div class="sp-results-head"><strong>为你找到 ' + list.length + ' 个套餐</strong><span>本地模拟价格 · 含税费</span></div>' +
+    box.innerHTML = '<div class="sp-results-head"><strong>为你找到 ' + list.length + ' 个套餐</strong><span>含税费</span></div>' +
       '<div class="sp-grid sp-grid-package">' + list.map(packageCardHtml).join('') + '</div>';
     box.addEventListener('click', function (event) {
       const card = event.target.closest('[data-package-id]');
@@ -1236,9 +1236,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         }).join('') +
       '</div></div>' +
       '<div class="detail-section"><h3>费用包含</h3><p style="font-size:12px;line-height:1.9;color:#55657c">' + item.includes.map(esc).join(' · ') + '</p></div>' +
-      '<div class="booking-total"><span>套餐参考价<br><small style="font-size:10px;color:#9aa6b6">每人 · 本地模拟</small></span><strong><em>¥</em>' + money(item.price) + '</strong></div>' +
+      '<div class="booking-total"><span>套餐参考价</span><strong><em>¥</em>' + money(item.price) + '</strong></div>' +
       '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>关闭</button><button class="primary-button" type="button" data-package-book="' + esc(item.id) + '">立即预订</button></div>' +
-      '<p class="booking-hint">本地模拟订单，不会产生真实费用或出行安排。</p>' +
     '</div>';
     const modal = openModal(html, { className: 'modal-wide' });
     modal.addEventListener('click', function (event) {
@@ -1402,7 +1401,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function renderShopPage() {
     state.shopFilter = state.shopFilter || { category: '', keyword: '', sort: 'recommended' };
     const filter = state.shopFilter;
-    servicePageShell('全球购', '免税直采 · 环球好物 · 本地模拟商城',
+    servicePageShell('全球购', '免税直采 · 环球好物',
       '<div class="sp-hero sp-hero-shop">' +
         '<div class="sp-hero-copy"><h2>全球好物一站购</h2><p>免税美妆 · 数码家电 · 环球美食</p></div>' +
         '<form class="sp-form" id="shopForm" novalidate>' +
@@ -1448,7 +1447,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       box.innerHTML = '<div class="sp-empty">没有找到相关商品，换个关键词试试。</div>';
       return;
     }
-    box.innerHTML = '<div class="sp-results-head"><strong>' + list.length + ' 件好物</strong><span>本地模拟价格 · 免税直采</span></div>' +
+    box.innerHTML = '<div class="sp-results-head"><strong>' + list.length + ' 件好物</strong><span>免税直采</span></div>' +
       '<div class="sp-grid sp-grid-shop">' + list.map(function (product) {
         return '<article class="sp-product" data-product-id="' + esc(product.id) + '" tabindex="0" role="button">' +
           '<div class="sp-product-art" style="background:' + product.gradient + '">' + svgIcon(product.icon) + '<span class="sp-product-tag">' + esc(product.tag) + '</span></div>' +
@@ -1471,9 +1470,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="sp-product-art" style="height:190px;border-radius:12px;background:' + product.gradient + '">' + svgIcon(product.icon) + '<span class="sp-product-tag">' + esc(product.tag) + '</span></div>' +
       '<div style="margin-top:16px"><h2 id="modalTitle" style="font-size:21px">' + esc(product.name) + '</h2>' +
       '<p style="margin-top:6px;font-size:12px;color:#77839a">' + esc(product.brand) + ' · 评分 ' + product.rating.toFixed(1) + ' · ' + money(product.sold) + ' 人已购</p></div>' +
-      '<div class="detail-section"><h3>商品说明</h3><p style="font-size:13px;line-height:1.9;color:#55657c">本地模拟商城商品，展示免税直采价格与规格，仅用于演示浏览、加购与结算流程，不会产生真实交易或发货。</p></div>' +
+      '<div class="detail-section"><h3>商品说明</h3><p style="font-size:13px;line-height:1.9;color:#55657c">免税直采商品，展示价格与规格，支持浏览、加购与结算。</p></div>' +
       '<div class="sp-qty-row"><span>数量</span><div class="sp-stepper"><button type="button" data-qty-minus>−</button><input id="productQty" type="text" value="1" readonly><button type="button" data-qty-plus>＋</button></div></div>' +
-      '<div class="booking-total"><span>小计<br><small style="font-size:10px;color:#9aa6b6">含税费 · 本地模拟</small></span><strong id="productSubtotal"><em>¥</em>' + money(product.price) + '</strong></div>' +
+      '<div class="booking-total"><span>小计</span><strong id="productSubtotal"><em>¥</em>' + money(product.price) + '</strong></div>' +
       '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>关闭</button><button class="primary-button" type="button" data-add-cart="' + esc(product.id) + '">加入购物车</button></div>' +
     '</div>';
     const modal = openModal(html);
@@ -1496,7 +1495,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   }
 
   function openCartModal() {
-    const modal = openModal('<div class="modal-body"><div class="modal-head" style="padding:0 0 12px"><h2 id="modalTitle">购物车</h2><p>本地模拟结算，不产生真实交易。</p></div><div id="cartBody"></div></div>');
+    const modal = openModal('<div class="modal-body"><div class="modal-head" style="padding:0 0 12px"><h2 id="modalTitle">购物车</h2></div><div id="cartBody"></div></div>');
     function render() {
       const items = cartItems();
       const body = $('#cartBody', modal);
@@ -1555,7 +1554,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       kind: 'shop',
       kindLabel: '全球购订单',
       title: '全球购 · ' + cartCount() + ' 件商品',
-      subtitle: '免税直采 · 本地模拟发货',
+      subtitle: '免税直采 · 快速发货',
       lines,
       total: cartTotal(),
       totalNote: '共 ' + cartCount() + ' 件 · 含税费',
@@ -1583,7 +1582,6 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           '<div class="sp-gift-block"><label>祝福语（选填）</label><textarea id="giftMessage" class="sp-gift-message" rows="2" placeholder="写下你想说的话">' + esc(gift.message) + '</textarea></div>' +
           '<div class="booking-total"><span>应付总额</span><strong id="giftTotal"><em>¥</em>' + money(gift.denom * gift.qty) + '</strong></div>' +
           '<div class="booking-submit-row"><button class="primary-button" type="button" id="giftBuy">立即购买</button></div>' +
-          '<p class="booking-hint">礼品卡为本地模拟凭证，不产生真实充值或兑付。</p>' +
         '</div>' +
       '</div>');
     function refresh() {
@@ -1640,7 +1638,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       ],
       total: gift.denom * gift.qty,
       totalNote: '¥' + gift.denom + ' × ' + gift.qty + ' 张',
-      dateLabel: '即时发放（模拟）',
+      dateLabel: '即时发放',
       guestLabel: gift.qty + '张礼品卡',
       meta: ['礼品卡', theme.name],
       details: { denom: gift.denom, qty: gift.qty, theme: gift.theme }
@@ -1654,7 +1652,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function renderFinancePage() {
     state.finance = state.finance || { amount: 10000, term: 12, rate: 7.2 };
     const finance = state.finance;
-    servicePageShell('橙程金融', '旅行消费金融 · 本地演示 · 不发起真实授信',
+    servicePageShell('橙程金融', '旅行消费金融 · 灵活分期',
       '<div class="sp-grid sp-grid-finance">' + FINANCE_PRODUCTS.map(function (product) {
         return '<article class="sp-finance-card">' +
           '<div class="sp-finance-art" style="background:' + product.gradient + '">' + svgIcon(product.icon) + '</div>' +
@@ -1672,7 +1670,6 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           '<div class="sp-field"><label>年化利率</label><select id="finRate"><option value="7.2">7.2%</option><option value="10.8">10.8%</option><option value="14.4">14.4%</option></select></div>' +
         '</div>' +
         '<div class="sp-calc-result"><div><span>每期应还</span><strong id="finMonthly">—</strong></div><div><span>总利息</span><strong id="finInterest">—</strong></div><div><span>本息合计</span><strong id="finTotal">—</strong></div></div>' +
-        '<p class="booking-hint">等额本息试算，仅为演示，不构成任何授信或借贷要约。</p>' +
       '</div>');
     $('#finTerm').value = String(finance.term);
     $('#finRate').value = String(finance.rate);
@@ -1699,7 +1696,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (!button) return;
       const product = FINANCE_PRODUCTS.find(function (item) { return item.id === button.getAttribute('data-finance-detail'); });
       if (!product) return;
-      openModal('<div class="modal-head"><h2 id="modalTitle">' + esc(product.name) + '</h2><p>' + esc(product.tag) + ' · 本地演示</p></div><div class="modal-body"><p style="font-size:13px;line-height:1.9;color:#55657c">' + esc(product.desc) + '</p><div class="detail-tag-line"><span class="detail-tag is-accent">' + esc(product.rate) + '</span><span class="detail-tag">' + esc(product.limit) + '</span></div><p class="demo-note">演示环境不发起真实授信、放款或扣款。</p><div class="booking-submit-row"><button class="primary-button" type="button" data-close-modal>知道了</button></div></div>');
+      openModal('<div class="modal-head"><h2 id="modalTitle">' + esc(product.name) + '</h2><p>' + esc(product.tag) + '</p></div><div class="modal-body"><p style="font-size:13px;line-height:1.9;color:#55657c">' + esc(product.desc) + '</p><div class="detail-tag-line"><span class="detail-tag is-accent">' + esc(product.rate) + '</span><span class="detail-tag">' + esc(product.limit) + '</span></div><div class="booking-submit-row"><button class="primary-button" type="button" data-close-modal>知道了</button></div></div>');
     });
   }
 
@@ -1709,7 +1706,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="sp-grid sp-grid-benefit">' + SENIOR_BENEFITS.map(function (benefit) {
         return '<div class="sp-benefit"><span class="sp-benefit-icon">' + svgIcon(benefit.icon) + '</span><strong>' + esc(benefit.title) + '</strong><p>' + esc(benefit.desc) + '</p></div>';
       }).join('') + '</div>' +
-      '<div class="sp-results-head"><strong>精选慢游线路</strong><span>本地模拟 · 可报名咨询</span></div>' +
+      '<div class="sp-results-head"><strong>精选慢游线路</strong><span>可报名咨询</span></div>' +
       '<div class="sp-list">' + SENIOR_PACKAGES.map(function (item) {
         return '<article class="sp-row sp-row-senior">' +
           '<div class="sp-row-info"><strong>' + esc(item.title) + '</strong><span>' + esc(item.dest) + ' · ' + item.days + '日 · ' + esc(item.pace) + '</span><span class="sp-seats">' + item.features.map(esc).join(' · ') + '</span></div>' +
@@ -1733,7 +1730,6 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           '<div class="form-field full"><label for="seniorNote">备注（健康状况/偏好）</label><textarea class="form-input" id="seniorNote" rows="2" placeholder="选填"></textarea></div>' +
         '</div>' +
         '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>取消</button><button class="primary-button" type="submit">提交报名</button></div>' +
-        '<p class="booking-hint">本地记录报名意向，不产生真实费用。</p>' +
       '</form></div>';
     const modal = openModal(html);
     $('#seniorForm', modal).addEventListener('submit', function (event) {
@@ -1745,20 +1741,20 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       state.seniorSignups = state.seniorSignups || [];
       state.seniorSignups.push({ packageId: item.id, name, phone, note: $('#seniorNote').value.trim(), at: new Date().toISOString() });
       closeModal();
-      toast('报名意向已记录，顾问将尽快联系（演示）');
+      toast('报名意向已记录，顾问将尽快联系');
     });
   }
 
   function renderAboutPage() {
-    servicePageShell('关于橙程', '航空旅行一站式服务平台 · 本地演示项目',
+    servicePageShell('关于橙程', '航空旅行一站式服务平台',
       '<div class="sp-stats">' + ABOUT_STATS.map(function (stat) {
         return '<div class="sp-stat"><strong>' + esc(stat.value) + '</strong><span>' + esc(stat.label) + '</span></div>';
       }).join('') + '</div>' +
-      '<div class="sp-card sp-about-card"><h3>项目简介</h3><p>橙程旅行是一个本地可运行的航空旅行一站式服务平台演示，整合机票、酒店、火车票、门票、汽车船票、用车、旅游度假与攻略等内容，提供动态票价、智能推荐、订单支付、在线值机、好友助力砍价与行程规划等完整交互。所有数据均为本地模拟，不连接真实旅行服务商。</p></div>' +
+      '<div class="sp-card sp-about-card"><h3>项目简介</h3><p>橙程旅行是一个可离线运行的航空旅行一站式服务平台，整合机票、酒店、火车票、门票、汽车船票、用车、旅游度假与攻略等内容，提供动态票价、智能推荐、订单支付、在线值机、好友助力砍价与行程规划等完整交互。所有数据均保存在本机，不连接第三方旅行服务商。</p></div>' +
       '<div class="sp-card sp-about-card"><h3>发展历程</h3><div class="sp-timeline">' + ABOUT_TIMELINE.map(function (entry) {
         return '<div class="sp-timeline-item"><span class="sp-timeline-year">' + esc(entry.year) + '</span><p>' + esc(entry.text) + '</p></div>';
       }).join('') + '</div></div>' +
-      '<div class="sp-card sp-about-card"><h3>联系我们</h3><p>演示邮箱：hello@octrip.demo · 本地服务地址：http://127.0.0.1:5180/</p><p>本项目仅用于教学与交互演示，与携程旅行网及任何真实旅行服务商无关联。</p></div>');
+      '<div class="sp-card sp-about-card"><h3>联系我们</h3><p>联系邮箱：hello@octrip.demo · 服务地址：http://127.0.0.1:5180/</p></div>');
   }
 
   function renderInspirePage() {
@@ -1810,7 +1806,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         if (!contact) { toast('请填写联系方式'); return; }
         state.infoSubmissions = state.infoSubmissions || [];
         state.infoSubmissions.push({ title, name, contact, message: $('#infoMessage').value.trim(), at: new Date().toISOString() });
-        toast('意向已记录（本地演示）');
+        toast('意向已记录');
         $('#infoForm').reset();
       });
     }
@@ -1941,10 +1937,10 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (seq !== state.searchSeq) return;
       if (error.code === 'NETWORK_ERROR') {
         state.apiOnline = false;
-        setApiStatus('offline', '本地模式', '后端搜索失败，已切换到本地模拟数据');
+        setApiStatus('offline', '本地模式', '后端搜索失败，使用浏览器本地数据');
       }
       state.resultData = DATA.getHotels(state.search.city);
-      toast('酒店接口失败，已回退本地模拟数据：' + error.message);
+      toast('酒店接口失败，已回退本地数据：' + error.message);
     }
     renderCurrentResults();
   }
@@ -1955,7 +1951,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     if (!from || !to) { toast('请填写出发与到达城市'); return; }
     if (from === to) { toast('出发和到达城市不能相同'); return; }
     if (!DATA.findFlightCity(from) || !DATA.findFlightCity(to)) {
-      toast('目前支持 ' + DATA.flightCities.length + ' 个主要城市之间的模拟航班，请从城市列表中选择');
+      toast('目前支持 ' + DATA.flightCities.length + ' 个主要城市之间的航班，请从城市列表中选择');
       return;
     }
     state.flight.from = from;
@@ -2013,7 +2009,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (seq !== state.searchSeq) return;
       if (error.code === 'NETWORK_ERROR') {
         state.apiOnline = false;
-        setApiStatus('offline', '本地模式', '后端搜索失败，已切换到本地模拟数据');
+        setApiStatus('offline', '本地模式', '后端搜索失败，使用浏览器本地数据');
       }
       state.resultData = localFlightResults(from, to, state.flight, localPricingNow);
       state.recommendation = null;
@@ -2070,13 +2066,13 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (seq !== state.searchSeq) return;
       if (error.code === 'NETWORK_ERROR') {
         state.apiOnline = false;
-        setApiStatus('offline', '本地模式', '后端搜索失败，已切换到本地模拟数据');
+        setApiStatus('offline', '本地模式', '后端搜索失败，使用浏览器本地数据');
       }
       state.resultData = DATA.getTrains(from, to, dateKey(state.train.date));
       if (state.train.type !== 'all') {
         state.resultData = state.resultData.filter(function (train) { return train.typeCode === state.train.type; });
       }
-      toast('火车票接口失败，已回退本地模拟数据：' + error.message);
+      toast('火车票接口失败，已回退本地数据：' + error.message);
     }
     renderCurrentResults();
   }
@@ -2114,10 +2110,10 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (seq !== state.searchSeq) return;
       if (error.code === 'NETWORK_ERROR') {
         state.apiOnline = false;
-        setApiStatus('offline', '本地模式', '后端搜索失败，已切换到本地模拟数据');
+        setApiStatus('offline', '本地模式', '后端搜索失败，使用浏览器本地数据');
       }
       state.resultData = DATA.getAttractions(city);
-      toast('门票接口失败，已回退本地模拟数据：' + error.message);
+      toast('门票接口失败，已回退本地数据：' + error.message);
     }
     renderCurrentResults();
   }
@@ -2307,8 +2303,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="summary-row"><span>住客</span><strong>' + params.rooms + '间 · ' + guestCount + '位</strong></div>' +
       '<div class="summary-row"><span>级别</span><strong>' + esc(params.level) + '</strong></div>' +
       (params.keyword ? '<div class="summary-row"><span>关键词</span><strong>' + esc(params.keyword) + '</strong></div>' : '') +
-      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>' +
-      '<p class="demo-note">共 ' + nights + ' 晚，价格为每间每晚的模拟含税价。</p>';
+      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>';
     $('#mapTeaser').hidden = false;
     $('#resultsCount').innerHTML = '找到 <strong>' + hotels.length + '</strong> 家符合条件的酒店' + (state.filters.price !== 'all' || state.filters.star !== 'all' || state.filters.tags.size ? '（已筛选）' : '');
     if (!hotels.length) {
@@ -2322,7 +2317,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     const labels = flight.recommendation && Array.isArray(flight.recommendation.labels) ? flight.recommendation.labels : [];
     const isBest = labels.indexOf('综合推荐') !== -1;
     const priceNote = flight.originalPrice && flight.originalPrice > flight.price
-      ? '<span class="price-old-inline" title="模拟参考全价">¥' + money(flight.originalPrice) + '</span>'
+      ? '<span class="price-old-inline" title="参考全价">¥' + money(flight.originalPrice) + '</span>'
       : '';
     const seats = flight.seatsLeft ? '<span class="seats-left">余 ' + flight.seatsLeft + ' 座</span>' : '<span class="seats-left">动态库存</span>';
     const dynamic = flight.pricing ? '<span class="dynamic-tag">动态票价</span>' : '';
@@ -2403,7 +2398,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '</button>';
     }).join('');
     $('#flightDateStrip').innerHTML = chips
-      ? '<div class="date-strip-head"><span>低价日历</span><small>前后 3 天模拟最低含税价</small></div><div class="date-strip-scroll">' + chips + '</div>'
+      ? '<div class="date-strip-head"><span>低价日历</span></div><div class="date-strip-scroll">' + chips + '</div>'
       : '';
   }
 
@@ -2442,11 +2437,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         flight.price <= state.flightFilters.maxPrice;
     }));
     renderFlightFilterPanel();
-    const validUntil = state.priceContext && state.priceContext.validUntil
-      ? new Date(state.priceContext.validUntil).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-      : '';
     $('#resultsTitle').textContent = params.from + ' → ' + params.to + ' 机票';
-    $('#resultsMeta').textContent = formatFull(params.date) + (params.trip === 'roundtrip' && params.returnDate ? ' - ' + formatFull(params.returnDate) : '') + ' · ' + params.passengers + '位成人 · ' + params.cabin + ' · ' + (params.trip === 'roundtrip' ? '往返' : '单程') + ' · 模拟动态含税价';
+    $('#resultsMeta').textContent = formatFull(params.date) + (params.trip === 'roundtrip' && params.returnDate ? ' - ' + formatFull(params.returnDate) : '') + ' · ' + params.passengers + '位成人 · ' + params.cabin + ' · ' + (params.trip === 'roundtrip' ? '往返' : '单程') + ' · 动态含税价';
     const best = filtered.reduce(function (current, flight) {
       if (!current) return flight;
       const currentScore = current.recommendation ? current.recommendation.score : 0;
@@ -2460,9 +2452,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="summary-row"><span>舱位</span><strong>' + esc(params.cabin) + '</strong></div>' +
       '<div class="summary-row"><span>乘客</span><strong>' + params.passengers + '位成人</strong></div>' +
       (best ? '<div class="summary-row"><span>推荐</span><strong>' + esc(best.airline) + ' ' + esc(best.flightNo) + ' · ¥' + money(best.price) + '</strong></div>' : '') +
-      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>' +
-      '<p class="demo-note">本地模拟价格，非航司实时售价；综合航程、航司、日期、旺季、时段和舱位计算，税费为演示固定值。每 5 分钟更新' + (validUntil ? '，当前价格桶有效至 ' + validUntil + '，服务端报价锁定 10 分钟' : '') + '。</p>';
-    $('#resultsCount').innerHTML = '共 <strong>' + filtered.length + '</strong> 个可选航班 · 动态含税价 · 余票来自本地库存';
+      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>';
+    $('#resultsCount').innerHTML = '共 <strong>' + filtered.length + '</strong> 个可选航班 · 动态含税价 · 余票实时更新';
     const reason = best && best.recommendation && best.recommendation.reason
       ? best.recommendation.reason
       : (state.recommendation && state.recommendation.policy) || '综合价格、耗时、出发时段与准点率推荐';
@@ -2478,16 +2469,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     prepareResultsLayout('train');
     setupSort('train');
     $('#resultsTitle').textContent = params.from + ' → ' + params.to + ' 火车票';
-    $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + params.passengers + '位成人 · ' + (params.type === 'all' ? '全部车次' : '只看' + (params.type === 'G' ? '高铁' : '动车')) + ' · 本地模拟';
+    $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + params.passengers + '位成人 · ' + (params.type === 'all' ? '全部车次' : '只看' + (params.type === 'G' ? '高铁' : '动车'));
     $('#summaryCard').innerHTML =
       '<h3>车次摘要</h3>' +
       '<div class="summary-row"><span>路线</span><strong>' + esc(params.from) + ' → ' + esc(params.to) + '</strong></div>' +
       '<div class="summary-row"><span>日期</span><strong>' + formatFull(params.date) + ' · ' + weekdayName(params.date) + '</strong></div>' +
       '<div class="summary-row"><span>乘客</span><strong>' + params.passengers + '位成人</strong></div>' +
       '<div class="summary-row"><span>类型</span><strong>' + (params.type === 'all' ? '全部车次' : params.type) + '</strong></div>' +
-      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>' +
-      '<p class="demo-note">车次、余票与价格为本地模拟，不可用于真实出行。</p>';
-    $('#resultsCount').innerHTML = '共 <strong>' + trains.length + '</strong> 个模拟车次';
+      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>';
+    $('#resultsCount').innerHTML = '共 <strong>' + trains.length + '</strong> 个车次';
     $('#resultList').innerHTML = trains.length ? trains.map(trainResultHtml).join('') : '<div class="empty-state">' + svgIcon('train') + '<h3>没有符合条件的车次</h3><p>请调整车次类型或更换路线。</p></div>';
   }
 
@@ -2504,15 +2494,14 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     prepareResultsLayout('ticket');
     setupSort('ticket');
     $('#resultsTitle').textContent = params.city + '门票·活动';
-    $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + (params.keyword ? '关键词“' + params.keyword + '” · ' : '') + '本地模拟玩乐项目';
+    $('#resultsMeta').textContent = formatFull(params.date) + ' · ' + (params.keyword ? '关键词“' + params.keyword + '” · ' : '') + '玩乐项目';
     $('#summaryCard').innerHTML =
       '<h3>玩乐摘要</h3>' +
       '<div class="summary-row"><span>城市</span><strong>' + esc(params.city) + '</strong></div>' +
       '<div class="summary-row"><span>游玩日期</span><strong>' + formatFull(params.date) + ' · ' + weekdayName(params.date) + '</strong></div>' +
       (params.keyword ? '<div class="summary-row"><span>关键词</span><strong>' + esc(params.keyword) + '</strong></div>' : '') +
-      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>' +
-      '<p class="demo-note">景点、价格与销量均为本地模拟；预订不会真实出票。</p>';
-    $('#resultsCount').innerHTML = '共 <strong>' + tickets.length + '</strong> 个模拟玩乐项目';
+      '<button class="summary-edit" type="button" data-edit-search>修改搜索</button>';
+    $('#resultsCount').innerHTML = '共 <strong>' + tickets.length + '</strong> 个玩乐项目';
     $('#resultList').innerHTML = tickets.length ? '<div class="ticket-grid">' + tickets.map(ticketResultHtml).join('') + '</div>' : '<div class="empty-state">' + svgIcon('ticket') + '<h3>没有匹配的门票或活动</h3><p>换一个关键词，例如“游船”“博物馆”“亲子”。</p></div>';
   }
 
@@ -2553,7 +2542,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="detail-gallery"><img src="' + esc(images[0]) + '" alt="' + esc(hotel.name) + '"><img src="' + esc(images[1] || images[0]) + '" alt="' + esc(hotel.name) + ' 客房"><img src="' + esc(images[2] || images[0]) + '" alt="' + esc(hotel.name) + ' 设施"></div>' +
       '<div class="detail-head">' +
         '<div><h2 id="modalTitle">' + esc(hotel.name) + '</h2>' + starsHtml(hotel.star) + '<p class="detail-address">' + esc(hotel.city) + ' · ' + esc(hotel.area) + ' · ' + esc(hotel.address) + '</p></div>' +
-        '<div class="detail-score-block"><span class="score-badge">' + hotel.rating.toFixed(1) + '</span><div class="detail-score-copy"><strong>' + ratingWord(hotel.rating) + '</strong><span>' + money(hotel.reviewCount) + '条真实感模拟点评</span></div></div>' +
+        '<div class="detail-score-block"><span class="score-badge">' + hotel.rating.toFixed(1) + '</span><div class="detail-score-copy"><strong>' + ratingWord(hotel.rating) + '</strong><span>' + money(hotel.reviewCount) + '条点评</span></div></div>' +
       '</div>' +
       '<div class="detail-tag-line">' + hotel.tags.map(function (tag, index) { return '<span class="detail-tag' + (index === 0 ? ' is-accent' : '') + '">' + esc(tag) + '</span>'; }).join('') + '</div>' +
       '<div class="detail-section"><h3>酒店设施</h3><div class="amenity-grid">' + hotel.amenities.map(function (item) { return '<div class="amenity-item">' + svgIcon(item[0]) + '<span>' + esc(item[1]) + '</span></div>'; }).join('') + '</div></div>' +
@@ -2563,7 +2552,6 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         return '<div class="room-card"><div class="room-info"><strong>' + esc(room.name) + '</strong><p>' + esc(room.bed) + ' · ' + esc(room.size) + ' · ' + esc(room.breakfast) + ' · <span class="room-cancel">' + esc(room.cancel) + '</span></p></div>' +
           '<div class="room-price-block"><div class="room-price"><strong><em>¥</em>' + money(room.price) + '</strong><span class="' + (left <= 2 && !soldOut ? 'is-warning' : '') + '">' + (soldOut ? '已满房' : '仅剩 ' + left + ' 间') + '</span></div><button class="primary-button" type="button" data-book-room="' + esc(hotel.id) + '" data-room-index="' + index + '"' + (soldOut ? ' disabled' : '') + '>' + (soldOut ? '已满' : '预订') + '</button></div></div>';
       }).join('') + '</div></div>' +
-      '<div class="detail-note">本地演示：酒店名称、图片、评分、房态和价格均为模拟数据。房量会在下单时扣减，取消订单或支付超时后释放。</div>' +
     '</div>';
     openModal(html, { className: 'modal-wide' });
   }
@@ -2575,10 +2563,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="ticket-art" style="height:190px;border-radius:12px;background:' + esc(ticket.gradient) + '">' + (ticket.image ? '<img src="' + esc(ticket.image) + '" alt="' + esc(ticket.name) + '">' : '') + svgIcon(ticket.icon) + '<span class="ticket-badge">' + esc(ticket.subtitle) + '</span></div>' +
       '<div style="margin-top:18px"><h2 id="modalTitle" style="font-size:24px">' + esc(ticket.name) + '</h2><p style="margin-top:6px;font-size:12px;color:#77839a">' + esc(ticket.city) + ' · ' + esc(ticket.duration) + ' · ' + esc(ticket.tags.join(' / ')) + '</p></div>' +
       '<div class="detail-tag-line"><span class="detail-tag is-accent">评分 ' + ticket.rating.toFixed(1) + '</span><span class="detail-tag">' + money(ticket.sold) + '人已订</span><span class="detail-tag">可订 ' + formatMD(state.ticket.date) + '</span></div>' +
-      '<div class="detail-section"><h3>项目说明</h3><p style="font-size:13px;line-height:1.9;color:#55657c">这是一条本地生成的模拟玩乐项目。展示价格、时长、评分与可订日期，仅用于演示从搜索到详情、再到模拟下单的完整交互。真实出行前请通过正规渠道核实景点开放时间与票务政策。</p></div>' +
-      '<div class="booking-total"><span>门票参考价<br><small style="font-size:10px;color:#9aa6b6">' + formatMD(state.ticket.date) + ' · 1张</small></span><strong><em>¥</em>' + money(ticket.price) + '</strong></div>' +
+      '<div class="detail-section"><h3>项目说明</h3><p style="font-size:13px;line-height:1.9;color:#55657c">展示价格、时长、评分与可订日期。出行前请通过正规渠道核实景点开放时间与票务政策。</p></div>' +
+      '<div class="booking-total"><span>门票参考价</span><strong><em>¥</em>' + money(ticket.price) + '</strong></div>' +
       '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>关闭</button><button class="primary-button" type="button" data-book-ticket>预订门票</button></div>' +
-      '<p class="booking-hint">本地模拟订单，不会产生真实出票或费用。</p>' +
     '</div>';
     openModal(html);
   }
@@ -2731,7 +2718,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       lines: [
         { label: '游玩日期', value: formatFull(state.ticket.date) },
         { label: '数量', value: '1张成人票' },
-        { label: '使用方式', value: '凭本地演示订单号入场（模拟）' }
+        { label: '使用方式', value: '凭订单号入场' }
       ],
       total: ticket.price,
       totalNote: '¥' + money(ticket.price) + ' × 1张',
@@ -2757,7 +2744,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function openBooking(draft) {
     if (state.apiOnline && (!state.user || !api.hasToken())) {
       state.pendingAuthAction = function () { openBooking(draft); };
-      openAuth('login', { reason: '预订前请先登录本地账户' });
+      openAuth('login', { reason: '预订前请先登录' });
       return;
     }
     state.bookingDraft = draft;
@@ -2765,15 +2752,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     const phone = state.user ? state.user.phone : '';
     const passengerCount = draft.kind === 'flight' ? Number(draft.passengerCount || 1) : 0;
     const passengerFields = passengerCount
-      ? '<div class="form-field full passenger-section"><div class="passenger-section-head"><span>乘机人信息 · ' + passengerCount + ' 位</span><button class="secondary-button small" type="button" data-fill-demo-passengers>填入演示信息</button></div>' +
+      ? '<div class="form-field full passenger-section"><div class="passenger-section-head"><span>乘机人信息 · ' + passengerCount + ' 位</span><button class="secondary-button small" type="button" data-fill-demo-passengers>填入示例信息</button></div>' +
         Array.from({ length: passengerCount }, function (_, index) {
           return '<fieldset class="passenger-fieldset"><legend>旅客 ' + (index + 1) + '</legend><div class="passenger-grid">' +
             '<div class="form-field"><label for="passengerName-' + index + '">姓名</label><input class="form-input" id="passengerName-' + index + '" data-passenger-name="' + index + '" type="text" placeholder="与证件姓名一致" maxlength="40"></div>' +
-            '<div class="form-field"><label for="passengerDocument-' + index + '">演示证件号</label><input class="form-input" id="passengerDocument-' + index + '" data-passenger-document="' + index + '" type="text" placeholder="6–20 位字母或数字" maxlength="20"></div>' +
+            '<div class="form-field"><label for="passengerDocument-' + index + '">证件号</label><input class="form-input" id="passengerDocument-' + index + '" data-passenger-document="' + index + '" type="text" placeholder="6–20 位字母或数字" maxlength="20"></div>' +
           '</div></fieldset>';
         }).join('') + '</div>'
       : '';
-    const html = '<div class="modal-head"><h2 id="modalTitle">确认订单</h2><p>' + esc(draft.kindLabel) + ' · 本地模拟预订，不会产生真实费用</p></div>' +
+    const html = '<div class="modal-head"><h2 id="modalTitle">确认订单</h2><p>' + esc(draft.kindLabel) + '</p></div>' +
       '<div class="modal-body">' +
         '<div class="booking-summary"><strong>' + esc(draft.title) + '</strong><p>' + esc(draft.subtitle) + '</p><div class="booking-lines">' +
           draft.lines.map(function (line) { return '<div class="booking-line"><span>' + esc(line.label) + '</span><strong>' + esc(line.value) + '</strong></div>'; }).join('') +
@@ -2782,16 +2769,13 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           '<div class="booking-form">' +
             passengerFields +
             '<div class="form-field"><label for="bookingName">联系人</label><input class="form-input" id="bookingName" name="name" type="text" placeholder="请输入联系人姓名" value="' + esc(name) + '" autocomplete="name"></div>' +
-            '<div class="form-field"><label for="bookingPhone">手机号</label><input class="form-input" id="bookingPhone" name="phone" type="tel" inputmode="numeric" placeholder="用于接收模拟订单通知" value="' + esc(phone) + '" autocomplete="tel"></div>' +
-            '<div class="form-field"><label for="bookingId">证件号（选填）</label><input class="form-input" id="bookingId" name="idNumber" type="text" placeholder="演示环境无需填写真实证件"></div>' +
+            '<div class="form-field"><label for="bookingPhone">手机号</label><input class="form-input" id="bookingPhone" name="phone" type="tel" inputmode="numeric" placeholder="用于接收订单通知" value="' + esc(phone) + '" autocomplete="tel"></div>' +
+            '<div class="form-field"><label for="bookingId">证件号（选填）</label><input class="form-input" id="bookingId" name="idNumber" type="text" placeholder="选填"></div>' +
             '<div class="form-field"><label for="bookingArrival">预计到达 / 出行时间</label><input class="form-input" id="bookingArrival" name="arrival" type="text" placeholder="例如：14:00 后"></div>' +
             '<div class="form-field full"><label for="bookingNote">备注</label><textarea class="form-input" id="bookingNote" name="note" rows="3" placeholder="可选：房型偏好、出行需求等"></textarea></div>' +
           '</div>' +
-          '<div class="booking-total"><span>' + esc(draft.totalNote) + '<br><small style="font-size:10px;color:#9aa6b6">全部为本地模拟价格，含税费</small></span><strong><em>¥</em>' + money(draft.total) + '</strong></div>' +
+          '<div class="booking-total"><span>' + esc(draft.totalNote) + '</span><strong><em>¥</em>' + money(draft.total) + '</strong></div>' +
           '<div class="booking-submit-row"><button class="secondary-button" type="button" data-close-modal>取消</button><button class="primary-button" type="submit">提交订单</button></div>' +
-          '<p class="booking-hint">' + (state.apiOnline && draft.apiPayload
-            ? '提交后会在本地后端创建订单（待付款），下一步可完成模拟支付与出票；机票支付后可在线值机。'
-            : '后端接口不可用或该业务未接入后端时，会在浏览器本地生成演示订单。') + '</p>' +
         '</form>' +
       '</div>';
     openModal(html);
@@ -2862,7 +2846,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         }
         if (error.code === 'NETWORK_ERROR') {
           state.apiOnline = false;
-          setApiStatus('offline', '本地模式', '后端不可用，已切换到本地模拟订单');
+          setApiStatus('offline', '本地模式', '后端不可用，已切换到浏览器本地订单');
         }
         toast(error.message);
         return;
@@ -2915,18 +2899,17 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         (canBargain
           ? '<button class="bargain-entry" type="button" data-order-bargain="' + esc(order.id) + '">' +
               '<span class="bargain-entry-icon">' + svgIcon('sparkle') + '</span>' +
-              '<span class="bargain-entry-copy"><strong>' + (discount ? '已减 ¥' + money(discount) + '，还能继续砍' : '邀好友砍一刀，最多减 ¥99') + '</strong><small>拼多多式助力：越到后面越难砍，最后只差 0.01</small></span>' +
+              '<span class="bargain-entry-copy"><strong>' + (discount ? '已减 ¥' + money(discount) + '，还能继续砍' : '邀好友砍一刀，最多减 ¥99') + '</strong></span>' +
               '<span class="bargain-entry-action">去砍价</span>' +
             '</button>'
           : '') +
         '<div class="payment-note">' + svgIcon('shield') + '<span>库存已为订单锁定。超时未支付订单会自动失效并释放机票或房量；如需修改，可先取消订单再重新预订。</span></div>' +
-        '<div class="booking-total"><span>应付金额<br><small style="font-size:10px;color:#9aa6b6">' + (discount ? '已用好友助力优惠 ¥' + money(discount) : '本地模拟支付 · MockPay Sandbox') + '</small></span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
+        '<div class="booking-total"><span>应付金额' + (discount ? '（已优惠 ¥' + money(discount) + '）' : '') + '</span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
         '<div class="booking-submit-row">' +
           '<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>' +
           '<button class="secondary-button" type="button" data-confirm-later>稍后支付</button>' +
           '<button class="primary-button" type="button" data-confirm-pay>确认支付</button>' +
         '</div>' +
-        '<p class="booking-hint">选择「稍后支付」后，可在「我的订单 → 待付款」中继续支付或取消。</p>' +
       '</div>' +
     '</div>';
     const modal = openModal(html);
@@ -2946,7 +2929,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   function openPaymentModal(order) {
     if (!order) return;
     if (order.userId && !state.apiOnline) {
-      toast('模拟支付需要本地后端，请先运行 npm start');
+      toast('支付需要本地后端，请先运行 npm start');
       return;
     }
     if (expireLocalOrder(order)) upsertOrder(order);
@@ -2958,29 +2941,28 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     const discount = order.originalTotal && order.originalTotal > order.total ? order.originalTotal - order.total : 0;
     let method = 'alipay';
     const methods = [
-      { key: 'alipay', label: '支付宝', note: '模拟网关', className: 'alipay' },
-      { key: 'wechat', label: '微信支付', note: '模拟网关', className: 'wechat' },
-      { key: 'card', label: '银行卡', note: '模拟收单', className: 'card' }
+      { key: 'alipay', label: '支付宝', className: 'alipay' },
+      { key: 'wechat', label: '微信支付', className: 'wechat' },
+      { key: 'card', label: '银行卡', className: 'card' }
     ];
     const html = '<div id="paymentRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">确认支付</h2><p>演示支付由本地 MockPay 沙箱处理，不会跳转真实支付平台。</p></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">确认支付</h2></div>' +
       '<div class="modal-body">' +
         '<div class="payment-amount"><span>应付金额</span><strong><em>¥</em>' + money(order.total) + '</strong><small>' + esc(order.title) + ' · ' + esc(order.id) + '</small></div>' +
         (discount ? '<div class="payment-discount">好友助力已减 <strong>-¥' + money(discount) + '</strong><span>原价 ¥' + money(order.originalTotal) + '</span></div>' : '') +
         '<div class="payment-order-meta"><span>出行日期 <b>' + esc(order.dateLabel || '—') + '</b></span><span>人数/房间 <b>' + esc(order.guestLabel || '—') + '</b></span>' + (deadline ? '<span>支付截止 <b>' + esc(deadline) + '</b></span>' : '') + '</div>' +
         '<div class="form-field" style="margin-top:16px"><label>支付方式</label><div class="payment-methods">' +
           methods.map(function (item) {
-            return '<button type="button" class="payment-method' + (item.key === method ? ' is-active' : '') + ' is-' + item.className + '" data-pay-method="' + item.key + '"><span class="payment-method-icon">' + (item.key === 'alipay' ? '支' : item.key === 'wechat' ? '微' : '卡') + '</span><span><strong>' + item.label + '</strong><small>' + item.note + '</small></span></button>';
+            return '<button type="button" class="payment-method' + (item.key === method ? ' is-active' : '') + ' is-' + item.className + '" data-pay-method="' + item.key + '"><span class="payment-method-icon">' + (item.key === 'alipay' ? '支' : item.key === 'wechat' ? '微' : '卡') + '</span><span><strong>' + item.label + '</strong></span></button>';
           }).join('') +
         '</div></div>' +
         '<div class="payment-note">' + svgIcon('shield') + '<span>支付成功后订单进入「已支付」状态；机票订单可继续在线值机。超时未支付的订单会自动失效并释放库存。</span></div>' +
-        '<div class="booking-total"><span>本地模拟支付<br><small style="font-size:10px;color:#9aa6b6">MockPay Sandbox · CNY</small></span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
+        '<div class="booking-total"><span>应付金额</span><strong><em>¥</em>' + money(order.total) + '</strong></div>' +
         '<div class="booking-submit-row">' +
           '<button class="danger-button" type="button" data-order-cancel="' + esc(order.id) + '">取消订单</button>' +
           '<button class="secondary-button" type="button" data-pay-later>稍后支付</button>' +
           '<button class="primary-button" type="button" id="payNow">立即支付</button>' +
         '</div>' +
-        '<p class="booking-hint">本演示不会采集真实支付凭据，也不会产生真实扣款。' + (order.userId ? '订单由本地后端保存。' : '此订单保存在当前浏览器中。') + '</p>' +
       '</div>' +
     '</div>';
     const modal = openModal(html);
@@ -3023,8 +3005,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="success-icon">' + svgIcon('check') + '</div>' +
       '<h2 id="modalTitle">支付成功</h2>' +
       '<p>' + esc(order.title) + '<br>' + esc(order.dateLabel || '') + ' · ' + esc(order.guestLabel || '') + '</p>' +
-      '<div class="order-number-box">本地订单号<strong>' + esc(order.id) + '</strong></div>' +
-      '<p>订单状态已更新为「' + esc(order.statusLabel || '已支付') + '」。' + (order.ticketing ? '模拟航信已出票，票号 ' + esc(order.ticketing.ticketNumber) + '，PNR ' + esc(order.ticketing.pnr) + '。' : '') + (canCheckin ? '现在可以在线选座并生成登机牌。' : '可在订单页查看状态历史。') + '</p>' +
+      '<div class="order-number-box">订单号<strong>' + esc(order.id) + '</strong></div>' +
+      '<p>订单状态已更新为「' + esc(order.statusLabel || '已支付') + '」。' + (order.ticketing ? '已出票，票号 ' + esc(order.ticketing.ticketNumber) + '，PNR ' + esc(order.ticketing.pnr) + '。' : '') + (canCheckin ? '现在可以在线选座并生成登机牌。' : '可在订单页查看状态历史。') + '</p>' +
       '<div class="success-actions">' +
         '<button class="secondary-button" type="button" data-success-orders>查看订单</button>' +
         (canCheckin ? '<button class="primary-button" type="button" data-pay-checkin="' + esc(order.id) + '">去值机</button>' : '<button class="primary-button" type="button" data-success-close>继续浏览</button>') +
@@ -3108,8 +3090,8 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         : '<button class="secondary-button" type="button" data-close-modal>关闭</button>';
     }
     if (mode === 'owner') {
-      return '<button class="primary-button" type="button" data-bargain-simulate data-count="1">模拟 1 位好友</button>' +
-        '<button class="secondary-button" type="button" data-bargain-simulate data-count="10">模拟 10 位好友</button>';
+      return '<button class="primary-button" type="button" data-bargain-simulate data-count="1">邀 1 位好友助力</button>' +
+        '<button class="secondary-button" type="button" data-bargain-simulate data-count="10">邀 10 位好友助力</button>';
     }
     if (bargain.canCut) {
       return '<button class="primary-button" type="button" data-bargain-cut>帮 TA 砍一刀</button>';
@@ -3160,13 +3142,13 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         '<div class="bargain-actions" id="bargainActions">' + bargainActionsHtml(bargain, order, mode) + '</div>' +
         (owner && bargain.status === 'ACTIVE'
           ? '<button class="bargain-skip" type="button" data-bargain-pay>先不砍了，直接去支付</button>' +
-            '<button class="bargain-skip" type="button" data-bargain-simulate-many>演示：一次拉 50 位好友（必成）</button>'
+            '<button class="bargain-skip" type="button" data-bargain-simulate-many>一键邀请 50 位好友（必成）</button>'
           : '') +
         (owner && bargain.status === 'ACTIVE'
           ? '<div class="bargain-link-row"><input id="bargainLink" readonly value="' + esc(link) + '" aria-label="邀请链接"><button class="secondary-button small" type="button" data-bargain-copy>复制</button></div>'
           : '') +
         '<div class="bargain-helpers" id="bargainHelpers">' + bargainHelpersHtml(bargain) + '</div>' +
-        '<p class="bargain-rule">演示玩法：每次助力随机砍 ¥0.01–¥8.88；越接近 ¥99 掉得越少，最后可能一直差 ¥0.01。每人限砍一次，活动随待付款订单 15 分钟失效。</p>' +
+        '<p class="bargain-rule">每次助力随机砍 ¥0.01–¥8.88；越接近 ¥99 掉得越少，最后可能一直差 ¥0.01。每人限砍一次，活动随待付款订单 15 分钟失效。</p>' +
       '</div>' +
     '</div>';
   }
@@ -3297,7 +3279,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         } catch (error) {
           toast(error.message);
           $$('button', root).forEach(function (item) { item.disabled = false; });
-          button.textContent = '演示：一次拉 50 位好友（必成）';
+          button.textContent = '一键邀请 50 位好友（必成）';
           if (error.code === 'BARGAIN_CLOSED' || error.code === 'INVALID_ORDER_STATE') {
             refreshBargainAfterError(state.bargain.token);
           }
@@ -3416,7 +3398,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     prompt.setAttribute('aria-modal', 'true');
     prompt.innerHTML = '<div class="confirm-pop-card">' +
       '<h3>取消订单</h3>' +
-      '<p>确定取消订单 <strong>' + esc(order.id) + '</strong> 吗？' + (paid ? '已支付订单将执行本地模拟退款，' : '') + '已占用的库存会立即释放，取消后不可恢复。</p>' +
+      '<p>确定取消订单 <strong>' + esc(order.id) + '</strong> 吗？' + (paid ? '已支付订单将执行退款，' : '') + '已占用的库存会立即释放，取消后不可恢复。</p>' +
       '<div class="confirm-pop-actions"><button class="secondary-button" type="button" data-cancel-no>再想想</button><button class="danger-button" type="button" data-cancel-yes>确认取消</button></div>' +
     '</div>';
     document.body.appendChild(prompt);
@@ -3455,7 +3437,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         upsertOrder(result.order);
         if (!$('#ordersView').hidden) renderOrdersPage();
         if (state.modalOpen) closeModal();
-        toast('订单已取消' + (result.order.cancellation && result.order.cancellation.refund ? '，模拟退款已完成' : ''));
+        toast('订单已取消' + (result.order.cancellation && result.order.cancellation.refund ? '，退款已完成' : ''));
       } catch (error) {
         toast(error.message);
       }
@@ -3466,7 +3448,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       if (cancelled.type === 'hotel') adjustHotelCacheAvailability(cancelled, 1);
     } catch (error) { toast(error.message); return; }
     if (state.modalOpen) closeModal();
-    toast('订单已取消（本地模拟）');
+    toast('订单已取消');
   }
 
   async function openCheckin(order) {
@@ -3510,16 +3492,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       return '<div class="seat-row"><span class="seat-row-label">' + row + '</span>' + cells + '</div>';
     }).join('');
     const html = '<div id="checkinRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">在线值机</h2><p>选择座位后确认，系统会生成模拟登机牌。值机后订单进入「已值机」状态。</p></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">在线值机</h2><p>选择座位后确认，系统会生成登机牌。值机后订单进入「已值机」状态。</p></div>' +
       '<div class="modal-body">' +
         '<div class="checkin-flight-card">' +
           '<div><span class="checkin-airline">' + esc(order.details ? order.details.airline : '') + ' · ' + esc(order.details ? order.details.flightNo : '') + '</span><strong>' + esc(seatMap.flightNo) + ' · ' + esc(order.title) + '</strong><small>' + esc(order.dateLabel || '') + ' · 登机口 ' + esc(seatMap.gate) + '</small></div>' +
           '<span class="order-status-pill is-paid">' + esc(order.statusLabel || '已支付') + '</span>' +
         '</div>' +
-        '<div class="seat-map-legend"><span><i class="seat-swatch available"></i>可选</span><span><i class="seat-swatch occupied"></i>已占用</span><span><i class="seat-swatch blocked"></i>不可选</span><span class="seat-map-note">共 ' + (columns.length * rows.length) + ' 个座位 · 本地座位图</span></div>' +
+        '<div class="seat-map-legend"><span><i class="seat-swatch available"></i>可选</span><span><i class="seat-swatch occupied"></i>已占用</span><span><i class="seat-swatch blocked"></i>不可选</span><span class="seat-map-note">共 ' + (columns.length * rows.length) + ' 个座位</span></div>' +
         '<div class="seat-map"><div class="seat-map-front">机头方向 ↑</div>' + rowsHtml + '</div>' +
         '<div class="checkin-bar"><div>已选座位：<strong id="selectedSeatLabel">请选择</strong></div><button class="primary-button" id="confirmCheckin" type="button" disabled>确认值机</button></div>' +
-        '<p class="booking-hint">出于演示考虑，值机仅校验订单状态、航班时间和座位占用，不连接真实航信系统。</p>' +
       '</div>' +
     '</div>';
     const modal = openModal(html, { className: 'modal-checkin' });
@@ -3604,10 +3585,9 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           '<div><span>PNR</span><strong>' + esc(pass.pnr || '—') + '</strong></div>' +
           '<div><span>票号 TICKET</span><strong>' + esc(pass.ticketNumber || '—') + '</strong></div>' +
         '</div>' +
-        '<div class="bp-bottom"><div class="bp-barcode">' + pass.boardingPassCode.split('').slice(0, 24).map(function (char) { return '<i style="height:' + (12 + (char.charCodeAt(0) % 22)) + 'px"></i>'; }).join('') + '</div><div class="bp-note">本地模拟登机牌 · 非真实登机凭证</div></div>' +
+        '<div class="bp-bottom"><div class="bp-barcode">' + pass.boardingPassCode.split('').slice(0, 24).map(function (char) { return '<i style="height:' + (12 + (char.charCodeAt(0) % 22)) + 'px"></i>'; }).join('') + '</div></div>' +
       '</div>' +
       '<div class="bp-actions"><button class="primary-button" type="button" data-bp-print>打印 / 保存登机牌</button><button class="secondary-button" type="button" data-success-orders>返回订单</button></div>' +
-      '<p class="booking-hint">登机口与登机时间均由本地规则生成，不可用于真实机场。</p>' +
     '</div></div>';
     openModal(html, { className: 'modal-boarding-pass' });
   }
@@ -3646,17 +3626,16 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         '</div>';
       }).join('');
     }
-    openModal('<div id="favoritesRoot"><div class="modal-head"><h2 id="modalTitle">我的收藏</h2><p>收藏只保存在本地浏览器中。</p></div><div class="modal-body" style="display:flex;flex-direction:column;gap:8px">' + content + '</div></div>');
+    openModal('<div id="favoritesRoot"><div class="modal-head"><h2 id="modalTitle">我的收藏</h2><p>管理你收藏的酒店。</p></div><div class="modal-body" style="display:flex;flex-direction:column;gap:8px">' + content + '</div></div>');
   }
 
   function openAccountModal() {
     if (!state.user) { openAuth('login'); return; }
     const roleLabel = state.user.role === 'agency' ? '旅行社账户' : '旅客账户';
-    const html = '<div id="accountRoot"><div class="modal-head"><h2 id="modalTitle">账户中心</h2><p>' + (state.apiOnline ? '登录态由本地后端会话维护，不连接真实账号系统。' : '后端离线时使用浏览器本地演示账户。') + '</p></div><div class="modal-body">' +
-      '<div class="user-card"><span class="user-avatar">' + svgIcon('user') + '</span><div><strong>' + esc(state.user.name || '橙程用户') + '</strong><span>' + esc(maskPhone(state.user.phone)) + ' · ' + esc(roleLabel) + ' · 本地演示</span></div></div>' +
-      '<div class="account-stats"><div><strong>' + state.orders.length + '</strong><span>订单</span></div><div><strong>' + state.favorites.size + '</strong><span>收藏酒店</span></div><div><strong>0</strong><span>积分（演示）</span></div></div>' +
+    const html = '<div id="accountRoot"><div class="modal-head"><h2 id="modalTitle">账户中心</h2><p>' + (state.apiOnline ? '管理你的账户与订单。' : '后端离线时使用浏览器本地账户。') + '</p></div><div class="modal-body">' +
+      '<div class="user-card"><span class="user-avatar">' + svgIcon('user') + '</span><div><strong>' + esc(state.user.name || '橙程用户') + '</strong><span>' + esc(maskPhone(state.user.phone)) + ' · ' + esc(roleLabel) + '</span></div></div>' +
+      '<div class="account-stats"><div><strong>' + state.orders.length + '</strong><span>订单</span></div><div><strong>' + state.favorites.size + '</strong><span>收藏酒店</span></div><div><strong>0</strong><span>积分</span></div></div>' +
       '<div class="account-actions"><button class="primary-button" type="button" data-account-orders>查看订单</button><button class="secondary-button" type="button" data-account-favorites>我的收藏</button><button class="secondary-button" type="button" data-account-logout>退出登录</button></div>' +
-      '<p class="demo-note">' + (state.apiOnline ? '账户与订单保存在本机 data/store.json 中；收藏仅保存在浏览器。' : '登录状态、订单与收藏均保存在浏览器本地。') + '</p>' +
     '</div></div>';
     openModal(html, { onMount: function (modal) {
       $('[data-account-orders]', modal).addEventListener('click', openOrdersPage);
@@ -3672,7 +3651,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         updateAuthUi();
         renderOrdersPreview();
         closeModal();
-        toast('已退出本地账户');
+        toast('已退出账户');
       });
     } });
   }
@@ -3686,17 +3665,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     const isRegister = mode === 'register';
     const role = state.authRole || 'traveler';
     const html = '<div id="authRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">' + (isRegister ? '创建本地账户' : '登录橙程旅行') + '</h2><p>' + (opts.reason ? esc(opts.reason) + '。' : '') + '本平台使用本地会话，不发送真实短信。</p></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">' + (isRegister ? '创建账户' : '登录橙程旅行') + '</h2>' + (opts.reason ? '<p>' + esc(opts.reason) + '</p>' : '') + '</div>' +
       '<div class="modal-body">' +
         '<div class="auth-tabs"><button type="button" class="auth-tab' + (!isRegister ? ' is-active' : '') + '" data-auth-tab="login">登录</button><button type="button" class="auth-tab' + (isRegister ? ' is-active' : '') + '" data-auth-tab="register">注册</button></div>' +
         '<form class="auth-form" id="authForm" novalidate>' +
           '<div class="form-field"><label for="authPhone">手机号</label><input class="form-input" id="authPhone" type="tel" inputmode="numeric" maxlength="11" placeholder="请输入 11 位手机号" autocomplete="tel"></div>' +
           '<div class="form-field"><label for="authCode">验证码</label><div class="code-row"><input class="form-input" id="authCode" type="text" inputmode="numeric" maxlength="6" placeholder="请输入 6 位验证码"><button class="code-button" id="sendCode" type="button">获取验证码</button></div></div>' +
-          '<div class="form-field"><label for="authRole">演示角色</label><select class="form-input" id="authRole"><option value="traveler"' + (role === 'traveler' ? ' selected' : '') + '>旅客 · 搜索、预订与值机</option><option value="agency"' + (role === 'agency' ? ' selected' : '') + '>旅行社 · 可查看全部旅客订单</option></select></div>' +
-          '<label class="auth-agreement"><input type="checkbox" id="authAgree"> 我已阅读并同意本地演示的服务说明，知悉本页面不提供真实预订服务。</label>' +
+          '<div class="form-field"><label for="authRole">角色</label><select class="form-input" id="authRole"><option value="traveler"' + (role === 'traveler' ? ' selected' : '') + '>旅客 · 搜索、预订与值机</option><option value="agency"' + (role === 'agency' ? ' selected' : '') + '>旅行社 · 可查看全部旅客订单</option></select></div>' +
           '<button class="primary-button auth-submit" type="submit">' + (isRegister ? '创建账户' : '登录') + '</button>' +
         '</form>' +
-        '<p class="auth-hint">演示验证码固定为 <strong>888888</strong>，任意 11 位中国大陆手机号均可登录。' + (state.apiOnline ? '登录状态由本地后端会话维护。' : '后端离线时将使用浏览器本地账户。') + '</p>' +
       '</div>' +
     '</div>';
     openModal(html, { onMount: function (modal) {
@@ -3719,7 +3696,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
           let seconds = 60;
           button.disabled = true;
           button.textContent = seconds + 's 后重发';
-          toast('演示验证码已发送：888888');
+          toast('验证码已发送：888888');
           if (state.authTimer) window.clearInterval(state.authTimer);
           state.authTimer = window.setInterval(function () {
             seconds -= 1;
@@ -3746,8 +3723,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         const selectedRole = $('#authRole').value;
         state.authRole = selectedRole;
         if (!/^1[3-9]\d{9}$/.test(phone)) { toast('请输入有效的 11 位手机号'); return; }
-        if (code !== '888888') { toast('演示验证码为 888888'); return; }
-        if (!$('#authAgree').checked) { toast('请先勾选演示服务说明'); return; }
+        if (code !== '888888') { toast('验证码不正确，请重新输入'); return; }
         const pending = state.pendingAuthAction;
         const submit = $('#authForm', modal).querySelector('button[type="submit"]');
         if (submit) { submit.disabled = true; submit.textContent = '登录中…'; }
@@ -3767,7 +3743,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
             return;
           }
         }
-        state.user = { phone: phone, name: selectedRole === 'agency' ? '旅行社演示账号' : '橙程用户', role: selectedRole, loginAt: new Date().toISOString() };
+        state.user = { phone: phone, name: selectedRole === 'agency' ? '旅行社账号' : '橙程用户', role: selectedRole, loginAt: new Date().toISOString() };
         writeStore(STORAGE.user, state.user);
         updateAuthUi();
         closeModal();
@@ -3800,7 +3776,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
         '<div class="city-search-line">' + svgIcon('search') + '<input id="cityPickerSearch" type="text" placeholder="搜索城市名称或拼音" autocomplete="off"></div>' +
         (hasInternational ? '<div class="city-modal-tabs"><button type="button" class="city-modal-tab' + (region === 'domestic' ? ' is-active' : '') + '" data-region="domestic">国内（含港澳台）</button><button type="button" class="city-modal-tab' + (region === 'international' ? ' is-active' : '') + '" data-region="international">海外</button></div>' : '') +
         '<div id="cityPickerBody"></div>' +
-        '<p class="city-hint">' + (isFlight ? '共 ' + pool.length + ' 个可飞城市；机场、时刻、余票与价格均为本地模拟。' : '酒店、机票、火车票与门票共用这份本地城市列表。') + '</p>' +
+        '<p class="city-hint">' + (isFlight ? '共 ' + pool.length + ' 个可飞城市。' : '酒店、机票、火车票与门票共用这份城市列表。') + '</p>' +
       '</div>' +
     '</div>';
     const modal = openModal(html, { className: 'modal-city' });
@@ -4145,7 +4121,6 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
             '<div class="planner-choice"><label>旅行偏好</label><div class="planner-chip-row"><button class="planner-chip is-active" type="button" data-planner-style="休闲">休闲</button><button class="planner-chip" type="button" data-planner-style="美食">美食</button><button class="planner-chip" type="button" data-planner-style="亲子">亲子</button><button class="planner-chip" type="button" data-planner-style="文化">文化</button></div></div>' +
           '</div>' +
           '<div class="planner-actions"><button class="primary-button" id="plannerGenerate" type="button">生成行程</button><button class="secondary-button" type="button" data-close-modal>关闭</button></div>' +
-          '<p class="demo-note">行程内容由本地规则与模拟景点生成，适合体验交互，不代表真实旅行建议。</p>' +
         '</div>' +
         '<div id="plannerResult" class="planner-result" hidden></div>' +
       '</div>' +
@@ -4221,8 +4196,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     result.hidden = false;
     result.innerHTML = '<div class="planner-banner"><div><strong>' + esc(data.city) + ' · ' + data.days + '天' + (data.days - 1) + '晚 · ' + esc(data.preferences.join(' / ') || '均衡') + '行程</strong><span>' + esc(data.summary) + ' · 预计 ¥' + money(data.estimatedCost) + '</span></div>' + svgIcon('sparkle') + '</div>' +
       daysHtml +
-      '<div class="planner-actions"><button class="primary-button" type="button" data-planner-save>保存行程</button><button class="secondary-button" type="button" data-planner-search="' + esc(data.city) + '">按此行程找酒店</button><button class="secondary-button" type="button" data-planner-history>查看已保存行程</button><button class="secondary-button" type="button" data-planner-reset>重新规划</button></div>' +
-      '<p class="demo-note">行程由本地后端 API 按模拟景点与酒店生成，不构成真实旅行建议。</p>';
+      '<div class="planner-actions"><button class="primary-button" type="button" data-planner-save>保存行程</button><button class="secondary-button" type="button" data-planner-search="' + esc(data.city) + '">按此行程找酒店</button><button class="secondary-button" type="button" data-planner-history>查看已保存行程</button><button class="secondary-button" type="button" data-planner-reset>重新规划</button></div>';
   }
 
   async function savePlannerResult(root) {
@@ -4246,7 +4220,7 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       const rows = (result.itineraries || []).map(function (item) {
         return '<div class="planner-history-row"><strong>' + esc(item.title) + '</strong><span>' + esc(formatDateTime(item.createdAt)) + ' · 预计 ¥' + money(item.estimatedCost) + '</span></div>';
       }).join('');
-      openModal('<div class="modal-head"><h2 id="modalTitle">已保存行程</h2><p>行程保存在本地后端账户中。</p></div><div class="modal-body"><div class="planner-history-list">' + (rows || '<p class="demo-note">暂无保存的行程。</p>') + '</div></div>');
+      openModal('<div class="modal-head"><h2 id="modalTitle">已保存行程</h2><p>行程保存在你的账户中。</p></div><div class="modal-body"><div class="planner-history-list">' + (rows || '<p class="demo-note">暂无保存的行程。</p>') + '</div></div>');
     } catch (error) { toast(error.message); }
   }
 
@@ -4277,40 +4251,130 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       '<div class="planner-actions"><button class="primary-button" type="button" data-planner-search="' + esc(city) + '">按此行程找酒店</button><button class="secondary-button" type="button" data-planner-reset>重新规划</button></div>';
   }
 
+  function mapSeed(text) {
+    let hash = 2166136261;
+    const value = String(text || '');
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  const MAP_DISTRICTS = {
+    上海: ['静安区', '黄浦区', '浦东新区'],
+    北京: ['东城区', '朝阳区', '海淀区'],
+    广州: ['越秀区', '天河区', '海珠区'],
+    三亚: ['吉阳区', '天涯区', '海棠区'],
+    杭州: ['西湖区', '上城区', '拱墅区'],
+    成都: ['锦江区', '武侯区', '成华区']
+  };
+
+  const MAP_RIVERS = {
+    上海: '黄浦江',
+    北京: '通惠河',
+    广州: '珠江',
+    三亚: '三亚河',
+    杭州: '钱塘江',
+    成都: '锦江'
+  };
+
+  function mapArtSvg(city) {
+    let seed = mapSeed(city) || 1;
+    function next() {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    }
+    function between(min, max) { return Math.round(min + next() * (max - min)); }
+    const cityKey = String(city || '');
+    const districts = MAP_DISTRICTS[cityKey] || ['中心城区', '滨河片区'];
+    const river = MAP_RIVERS[cityKey] || '滨河';
+    const pieces = [];
+    pieces.push('<rect width="700" height="390" fill="#f1f3f6"></rect>');
+
+    let blocks = '';
+    for (let row = 0; row < 8; row += 1) {
+      for (let col = 0; col < 12; col += 1) {
+        const x = col * 58 + 5 + between(-2, 2);
+        const y = row * 48 + 5 + between(-2, 2);
+        blocks += '<rect x="' + x + '" y="' + y + '" width="' + between(34, 44) + '" height="' + between(24, 33) + '" rx="3"></rect>';
+      }
+    }
+    pieces.push('<g fill="#fbfcfd" stroke="#e6e9ef" stroke-width="1">' + blocks + '</g>');
+
+    const parkTop = between(34, 76);
+    pieces.push('<rect x="38" y="' + parkTop + '" width="' + between(112, 148) + '" height="' + between(62, 84) + '" rx="16" fill="#dcf1e1" stroke="#c9e8d1"></rect>');
+    pieces.push('<rect x="' + between(486, 530) + '" y="' + between(228, 258) + '" width="' + between(124, 158) + '" height="' + between(74, 96) + '" rx="18" fill="#dcf1e1" stroke="#c9e8d1"></rect>');
+
+    const riverPath = 'M-20 336C120 306 200 348 320 308S520 244 730 268';
+    pieces.push('<path d="' + riverPath + '" fill="none" stroke="#b7dbf7" stroke-width="24"></path>');
+    pieces.push('<path d="' + riverPath + '" fill="none" stroke="#d6ebfb" stroke-width="18"></path>');
+    pieces.push('<text x="352" y="308" fill="#7fa9cd" font-size="11" transform="rotate(-7 352 308)">' + river + '</text>');
+    pieces.push('<text x="452" y="218" fill="#64a982" font-size="9" transform="rotate(-8 452 218)">地铁 2 号线</text>');
+
+    const verticals = [];
+    for (let col = 1; col < 12; col += 1) verticals.push(col * 58 + between(-2, 2));
+    const horizontals = [];
+    for (let row = 1; row < 8; row += 1) horizontals.push(row * 48 + between(-2, 2));
+    let grid = '';
+    verticals.forEach(function (x) { grid += 'M' + x + ' -10V400'; });
+    horizontals.forEach(function (y) { grid += 'M-10 ' + y + 'H710'; });
+    pieces.push('<path d="' + grid + '" fill="none" stroke="#e1e5ec" stroke-width="7" stroke-linecap="round"></path>');
+    pieces.push('<path d="' + grid + '" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"></path>');
+
+    const arterialA = 'M-10 124C160 110 300 148 710 126';
+    const arterialB = 'M246 -10C236 120 264 250 252 400';
+    pieces.push('<g fill="none" stroke="#f0d79f" stroke-width="11" stroke-linecap="round"><path d="' + arterialA + '"></path><path d="' + arterialB + '"></path></g>');
+    pieces.push('<g fill="none" stroke="#fdf0d2" stroke-width="7" stroke-linecap="round"><path d="' + arterialA + '"></path><path d="' + arterialB + '"></path></g>');
+
+    const metroA = 'M-10 316L150 288L246 312L420 226L710 198';
+    const metroB = 'M96 -10L138 142L318 182L356 400';
+    pieces.push('<g fill="none" stroke="#63c28f" stroke-width="3" opacity=".9"><path d="' + metroA + '"></path></g>');
+    pieces.push('<g fill="none" stroke="#eda75f" stroke-width="3" opacity=".85"><path d="' + metroB + '"></path></g>');
+    pieces.push('<g fill="#ffffff" stroke="#63c28f" stroke-width="2"><circle cx="150" cy="288" r="3.4"></circle><circle cx="246" cy="312" r="3.4"></circle><circle cx="420" cy="226" r="3.4"></circle></g>');
+    pieces.push('<g fill="#ffffff" stroke="#eda75f" stroke-width="2"><circle cx="138" cy="142" r="3.4"></circle><circle cx="318" cy="182" r="3.4"></circle></g>');
+
+    const labelStyle = 'font-size="12" fill="#5d6674" letter-spacing="1" paint-order="stroke" stroke="#ffffff" stroke-width="3.5"';
+    pieces.push('<text x="250" y="44" ' + labelStyle + '>' + districts[0] + '</text>');
+    pieces.push('<text x="56" y="196" ' + labelStyle + '>' + districts[1] + '</text>');
+    pieces.push('<text x="580" y="246" ' + labelStyle + '>' + (districts[2] || '') + '</text>');
+    pieces.push('<text x="50" y="' + (parkTop + 22) + '" fill="#6ba97e" font-size="11">城市公园</text>');
+    pieces.push('<text x="512" y="318" fill="#6ba97e" font-size="11">滨河绿地</text>');
+    pieces.push('<text x="262" y="114" fill="#a3acb9" font-size="9" transform="rotate(-3 262 114)">中山路</text>');
+    pieces.push('<text x="230" y="212" fill="#a3acb9" font-size="9" transform="rotate(-90 230 212)">人民大道</text>');
+    pieces.push('<text x="62" y="372" fill="#a7b0bc" font-size="10">橙程地图</text>');
+    pieces.push('<circle cx="50" cy="368" r="3" fill="#7d6bff"></circle>');
+
+    return '<svg viewBox="0 0 700 390" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + pieces.join('') + '</svg>';
+  }
+
   function openMapModal(city) {
     const currentCity = DATA.normalizeCity(city) || state.search.city;
     const hotels = DATA.getHotels(currentCity);
     const positions = [
-      { left: '24%', top: '34%' },
-      { left: '56%', top: '26%' },
-      { left: '72%', top: '54%' },
-      { left: '42%', top: '64%' },
-      { left: '18%', top: '72%' },
-      { left: '82%', top: '30%' }
+      { left: '23%', top: '31%' },
+      { left: '55%', top: '23%' },
+      { left: '77%', top: '47%' },
+      { left: '43%', top: '61%' },
+      { left: '17%', top: '69%' },
+      { left: '82%', top: '27%' }
     ];
     const options = DATA.recommendCities.map(function (name) {
       return '<option value="' + esc(name) + '"' + (name === currentCity ? ' selected' : '') + '>' + esc(name) + '</option>';
     }).join('');
     const pins = hotels.map(function (hotel, index) {
       const position = positions[index % positions.length];
-      return '<button type="button" class="map-pin" style="left:' + position.left + ';top:' + position.top + '" data-map-hotel="' + esc(hotel.id) + '"><span>¥' + money(hotel.price) + '</span>' + svgIcon('pin') + '</button>';
+      return '<button type="button" class="map-pin" style="left:' + position.left + ';top:' + position.top + '" data-map-hotel="' + esc(hotel.id) + '" title="' + esc(hotel.name) + ' · ¥' + money(hotel.price) + ' 起">' +
+        '<span class="map-pin-bubble"><i class="map-pin-icon">' + svgIcon('bed') + '</i><strong>¥' + money(hotel.price) + '</strong></span>' +
+        '<span class="map-pin-name">' + esc(hotel.name) + '</span></button>';
     }).join('');
     const rows = hotels.map(function (hotel) {
       return '<button type="button" class="map-hotel-row" data-map-hotel="' + esc(hotel.id) + '"><img src="' + esc(hotel.image) + '" alt="' + esc(hotel.name) + '"><span><strong>' + esc(hotel.name) + '</strong><span>' + esc(hotel.area) + ' · ¥' + money(hotel.price) + '起</span></span></button>';
     }).join('');
     const html = '<div id="mapRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">地图找酒店</h2><p>点击地图标记或右侧列表查看酒店详情。地图为本地绘制的示意地图，不是真实地理数据。</p><div class="map-city-select"><label for="mapCitySelect">城市</label><select id="mapCitySelect" class="form-input">' + options + '</select></div></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">地图找酒店</h2><p>共 ' + hotels.length + ' 家酒店，点击标记或右侧列表查看详情。</p><div class="map-city-select"><label for="mapCitySelect">城市</label><select id="mapCitySelect" class="form-input">' + options + '</select></div></div>' +
       '<div class="modal-body"><div class="map-modal-layout">' +
-        '<div><div class="map-board"><div class="map-board-art">' +
-          '<svg viewBox="0 0 700 390" preserveAspectRatio="xMidYMid slice"><rect width="700" height="390" fill="#eef6ff"></rect>' +
-            '<path d="M-20 300 C 100 230 180 270 280 220 S 500 130 720 170 L720 390 L-20 390Z" fill="#d1e9df"></path>' +
-            '<path d="M-30 335 C 120 265 210 305 320 245 S 540 165 740 215" fill="none" stroke="#a9d1f8" stroke-width="28"></path>' +
-            '<g stroke="#ffffff" stroke-width="10" opacity=".9"><path d="M60 0v390M220 0v390M420 0v390M610 0v390M0 80h700M0 200h700M0 320h700"></path></g>' +
-            '<g fill="#dcebe0"><rect x="90" y="100" width="84" height="55" rx="10"></rect><rect x="460" y="230" width="100" height="48" rx="10"></rect><rect x="250" y="248" width="74" height="46" rx="10"></rect></g>' +
-            '<g fill="#fff" opacity=".65"><rect x="260" y="100" width="80" height="48" rx="8"></rect><rect x="480" y="82" width="80" height="48" rx="8"></rect></g>' +
-            '<circle cx="330" cy="150" r="38" fill="#b7ddff" opacity=".75"></circle>' +
-          '</svg>' +
-        '</div>' + pins + '</div><div class="map-legend"><span>● 酒店位置为模拟分布</span><span>地图不包含真实道路与坐标</span></div></div>' +
+        '<div><div class="map-board"><div class="map-board-art">' + mapArtSvg(currentCity) + '</div>' + pins + '</div></div>' +
         '<div class="map-side-list">' + rows + '</div>' +
       '</div></div>' +
     '</div>';
@@ -4321,6 +4385,16 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       const hotelButton = event.target.closest('[data-map-hotel]');
       if (hotelButton) openHotelDetail(DATA.getHotelById(hotelButton.getAttribute('data-map-hotel')));
     });
+    function highlightPin(id) {
+      $$('.map-pin', root).forEach(function (pin) {
+        pin.classList.toggle('is-active', Boolean(id) && pin.getAttribute('data-map-hotel') === id);
+      });
+    }
+    root.addEventListener('mouseover', function (event) {
+      const row = event.target.closest('.map-hotel-row');
+      highlightPin(row ? row.getAttribute('data-map-hotel') : null);
+    });
+    root.addEventListener('mouseleave', function () { highlightPin(null); }, true);
   }
 
   function openRankModal() {
@@ -4333,15 +4407,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     const rows = top.map(function (hotel, index) {
       return '<button class="rank-row" type="button" data-modal-hotel="' + esc(hotel.id) + '"><span class="rank-num">' + (index + 1) + '</span><img src="' + esc(hotel.image) + '" alt="' + esc(hotel.name) + '"><span class="rank-copy"><strong>' + esc(hotel.name) + '</strong><span>' + esc(hotel.city) + ' · ' + esc(hotel.area) + ' · ' + hotel.rating.toFixed(1) + '分 · ' + money(hotel.reviewCount) + '条点评</span></span><span class="rank-price">¥' + money(hotel.price) + '</span></button>';
     }).join('');
-    openModal('<div class="modal-head"><h2 id="modalTitle">橙程榜单</h2><p>按模拟评分与点评数综合排序，帮助快速挑选住宿。点击任意酒店查看详情。</p></div><div class="modal-body">' + rows + '<p class="demo-note">榜单仅基于本地生成的模拟数据，不代表真实酒店排名。</p></div>');
+    openModal('<div class="modal-head"><h2 id="modalTitle">橙程榜单</h2><p>按评分与点评数综合排序，帮助快速挑选住宿。点击任意酒店查看详情。</p></div><div class="modal-body">' + rows + '</div>');
   }
 
   function openSupportModal() {
     const html = '<div id="supportRoot">' +
-      '<div class="modal-head"><h2 id="modalTitle">联系客服</h2><p>本地演示客服，不会连接真人坐席。你可以体验 FAQ 与自动回复。</p></div>' +
+      '<div class="modal-head"><h2 id="modalTitle">联系客服</h2><p>你可以咨询订单、取消、收藏或搜索相关问题。</p></div>' +
       '<div class="modal-body"><div class="support-layout">' +
-        '<div class="support-faq"><button type="button" data-faq="如何查看我的订单？">如何查看订单？</button><button type="button" data-faq="如何取消本地订单？">如何取消订单？</button><button type="button" data-faq="订单会真实扣费吗？">会真实扣费吗？</button><button type="button" data-faq="如何收藏酒店？">如何收藏酒店？</button></div>' +
-        '<div><div class="chat-log" id="chatLog"><div class="chat-msg bot">你好，我是橙程本地演示助手。可以问我订单、取消、收藏或搜索相关的问题。</div></div><form class="chat-form" id="supportForm"><input id="supportInput" type="text" placeholder="输入你的问题..." autocomplete="off"><button class="primary-button" type="submit">发送</button></form></div>' +
+        '<div class="support-faq"><button type="button" data-faq="如何查看我的订单？">如何查看订单？</button><button type="button" data-faq="如何取消订单？">如何取消订单？</button><button type="button" data-faq="支付方式有哪些？">支付方式有哪些？</button><button type="button" data-faq="如何收藏酒店？">如何收藏酒店？</button></div>' +
+        '<div><div class="chat-log" id="chatLog"><div class="chat-msg bot">你好，我是橙程旅行助手。可以问我订单、取消、收藏或搜索相关的问题。</div></div><form class="chat-form" id="supportForm"><input id="supportInput" type="text" placeholder="输入你的问题..." autocomplete="off"><button class="primary-button" type="submit">发送</button></form></div>' +
       '</div></div>' +
     '</div>';
     const modal = openModal(html);
@@ -4357,10 +4431,10 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
     function reply(question) {
       window.setTimeout(function () {
         if (!document.body.contains(log)) return;
-        let answer = '这是本地演示客服。你可以体验搜索、详情、预订、订单与收藏等完整流程，所有数据都保存在浏览器中。';
-        if (/订单|查/.test(question)) answer = '点击右上角“我的订单”即可查看本地订单。完成预订后会立即出现在列表中，也可以随时取消。';
-        else if (/取消|退款/.test(question)) answer = '在“我的订单”中点击“取消订单”即可把本地订单标记为已取消。演示订单不涉及真实退款。';
-        else if (/扣费|支付|真实/.test(question)) answer = '不会。本页面完全在本地运行，不连接支付机构，也不会产生真实费用或出票。';
+        let answer = '你可以咨询搜索、详情、预订、订单与收藏等相关问题。';
+        if (/订单|查/.test(question)) answer = '点击右上角“我的订单”即可查看订单。完成预订后会立即出现在列表中，也可以随时取消。';
+        else if (/取消|退款/.test(question)) answer = '在“我的订单”中点击“取消订单”即可取消订单，取消后不可恢复。';
+        else if (/扣费|支付|真实/.test(question)) answer = '支持支付宝、微信支付与银行卡，支付成功后订单进入「已支付」状态。';
         else if (/收藏/.test(question)) answer = '在酒店卡片右上角点击心形按钮即可收藏，顶部心形入口可以查看全部收藏。';
         else if (/酒店|搜索/.test(question)) answer = '在首页选择“酒店”，填写目的地、日期和人数后点击搜索，即可查看筛选、详情和预订流程。';
         append('bot', answer);
@@ -4386,15 +4460,15 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
   }
 
   function openBusinessModal() {
-    openModal('<div class="modal-head"><h2 id="modalTitle">橙程商旅 · 本地演示</h2><p>企业差旅管理模块的界面演示，不提供真实企业服务。</p></div><div class="modal-body">' +
+    openModal('<div class="modal-head"><h2 id="modalTitle">橙程商旅</h2><p>企业差旅管理服务</p></div><div class="modal-body">' +
       '<div class="detail-tag-line"><span class="detail-tag is-accent">统一预订</span><span class="detail-tag">费用管控</span><span class="detail-tag">月度对账</span><span class="detail-tag">差旅政策</span></div>' +
-      '<p style="margin-top:16px;font-size:13px;line-height:1.9;color:#55657c">真实的企业商旅系统通常包含员工权限、成本中心、审批流、协议价与发票管理。本演示只复刻首页入口和说明，不包含登录态企业数据和真实协议价。</p>' +
+      '<p style="margin-top:16px;font-size:13px;line-height:1.9;color:#55657c">企业商旅通常包含员工权限、成本中心、审批流、协议价与发票管理。</p>' +
       '<div class="booking-submit-row"><button class="primary-button" type="button" data-close-modal>返回首页</button></div>' +
-      '<p class="demo-note">该入口与真实携程商旅无关。</p></div>');
+      '</div>');
   }
 
   function openAppModal() {
-    openModal('<div class="modal-head"><h2 id="modalTitle">手机版演示</h2><p>当前站点已经适配移动端浏览器。</p></div><div class="modal-body"><div class="user-card"><span class="user-avatar">' + svgIcon('phone') + '</span><div><strong>直接使用移动浏览器访问</strong><span>将页面地址在手机浏览器中打开即可体验响应式布局。</span></div></div><p class="demo-note">本演示不包含真实的 App 下载二维码或原生客户端。</p><div class="booking-submit-row"><button class="primary-button" type="button" data-close-modal>知道了</button></div></div>');
+    openModal('<div class="modal-head"><h2 id="modalTitle">手机版</h2><p>当前站点已经适配移动端浏览器。</p></div><div class="modal-body"><div class="user-card"><span class="user-avatar">' + svgIcon('phone') + '</span><div><strong>直接使用移动浏览器访问</strong><span>将页面地址在手机浏览器中打开即可体验响应式布局。</span></div></div><div class="booking-submit-row"><button class="primary-button" type="button" data-close-modal>知道了</button></div></div>');
   }
 
   function openInfoModal(title) {
@@ -4982,12 +5056,12 @@ import { createLocalOrder, normalizeLocalOrder, changeLocalOrder, expireLocalOrd
       for (let index = 0; index < count; index += 1) {
         const nameInput = $('[data-passenger-name="' + index + '"]');
         const documentInput = $('[data-passenger-document="' + index + '"]');
-        if (nameInput && !nameInput.value.trim()) nameInput.value = '演示旅客' + (index + 1);
+        if (nameInput && !nameInput.value.trim()) nameInput.value = '示例旅客' + (index + 1);
         if (documentInput && !documentInput.value.trim()) documentInput.value = 'DEMO' + String(index + 1).padStart(6, '0');
       }
       const contactName = $('#bookingName');
       const contactPhone = $('#bookingPhone');
-      if (contactName && !contactName.value.trim()) contactName.value = '演示联系人';
+      if (contactName && !contactName.value.trim()) contactName.value = '示例联系人';
       if (contactPhone && !contactPhone.value.trim()) contactPhone.value = '13800138000';
       return;
     }
